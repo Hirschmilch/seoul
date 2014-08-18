@@ -5,7 +5,6 @@ local version = "0.01"
 local qReady, eReady  = false, false
 local QRANGE, RRANGE = 600, 400
 local levelChart = {SPELL_1, SPELL_2, SPELL_3}
-local VP = nil
 
 function CDHandler()
     qReady = (myHero:CanUseSpell(_Q) == READY) 
