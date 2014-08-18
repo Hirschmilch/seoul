@@ -1,5 +1,7 @@
 if myHero.charName ~= "Fiora" then return end
 
+local version = "0.01"
+
 local qReady, eReady  = false, false
 local QRANGE, RRANGE = 600, 400
 local levelChart = {SPELL_1, SPELL_2, SPELL_3}
