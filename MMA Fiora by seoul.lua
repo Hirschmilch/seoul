@@ -3,7 +3,6 @@ if myHero.charName ~= "Fiora" then return end
 local qReady, eReady  = false, false
 local QRANGE, RRANGE = 600, 400
 local levelChart = {SPELL_1, SPELL_2, SPELL_3}
-local VP = nil
 
 function CDHandler()
     qReady = (myHero:CanUseSpell(_Q) == READY) 
@@ -30,7 +29,7 @@ function CastE()
 	nextAA = _G.MMA_NextAttackAvailability
 		if nextAA > 0.1 and nextAA < 0.2  and eReady then
 			CastSpell(_E)
-				_G.MMA_ResetAutoAttack()
+			_G.MMA_ResetAutoAttack()
 		end
 end
         
@@ -66,49 +65,43 @@ function AutoLevel()
 end
 
 function OnLoad()
-    ts = TargetSelector(TARGET_LESS_CAST, QRANGE)
-    
-    Menu = scriptConfig("Fiora by seoul", "FioraSeoul")
-
+	ts = TargetSelector(TARGET_LESS_CAST, QRANGE)
+    	
+	Menu = scriptConfig("Fiora by seoul", "FioraSeoul")
 		Menu:addParam("blank", "", SCRIPT_PARAM_INFO, "")
 		Menu:addParam("version", "Version 0.01", SCRIPT_PARAM_INFO, "")
-
 		Menu:addSubMenu("Target Selector", "targetSelector")
-			Menu.targetSelector:addTS(ts)
-    ts.name = "Focus"
-
+		Menu.targetSelector:addTS(ts)
+		ts.name = "Focus"
 		Menu:addSubMenu("MISC", "Misc")
 			Menu.Misc:addSubMenu("Draw", "ToDraw")
 				Menu.Misc.ToDraw:addParam("DrawQ", "Draw Q", SCRIPT_PARAM_ONOFF, true)
 				Menu.Misc.ToDraw:addParam("DrawR", "Draw R", SCRIPT_PARAM_ONOFF, true)  
-
-		Menu.Misc:addSubMenu("Auto Level", "AutoLevel")
-      Menu.Misc.AutoLevel:addParam("SkillAt1", "Level 1", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
-      Menu.Misc.AutoLevel:addParam("SkillAt2", "Level 2", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
-      Menu.Misc.AutoLevel:addParam("SkillAt3", "Level 3", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
-      Menu.Misc.AutoLevel:addParam("UseAutoLevel", "Use Auto Level", SCRIPT_PARAM_ONOFF, false)
-
+			Menu.Misc:addSubMenu("Auto Level", "AutoLevel")
+				Menu.Misc.AutoLevel:addParam("SkillAt1", "Level 1", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
+				Menu.Misc.AutoLevel:addParam("SkillAt2", "Level 2", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
+				Menu.Misc.AutoLevel:addParam("SkillAt3", "Level 3", SCRIPT_PARAM_LIST, 1, { "_Q", "_W", "_E"})
+				Menu.Misc.AutoLevel:addParam("UseAutoLevel", "Use Auto Level", SCRIPT_PARAM_ONOFF, false)
 		Menu:addSubMenu("Combo Settings", "MainCombo")
-      Menu.MainCombo:addSubMenu("Q Settings", "QSettings")
+			Menu.MainCombo:addSubMenu("Q Settings", "QSettings")
 				Menu.MainCombo.QSettings:addParam("UseQ", "Use Q", SCRIPT_PARAM_ONOFF, true) 
-      Menu.MainCombo:addSubMenu("E Settings", "ESettings")
-        Menu.MainCombo.ESettings:addParam("UseE", "Use E", SCRIPT_PARAM_ONOFF, true)
-      Menu.MainCombo:addParam("GodKey", "God Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
-				
+			Menu.MainCombo:addSubMenu("E Settings", "ESettings")
+				Menu.MainCombo.ESettings:addParam("UseE", "Use E", SCRIPT_PARAM_ONOFF, true)
+			Menu.MainCombo:addParam("GodKey", "God Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 end
 
 function OnTick()
-    if myHero.dead then return end
+	if myHero.dead then return end
 
-		ts:update()
-    CDHandler()
-    KSQ()
+	ts:update()
+	CDHandler()
+	KSQ()
 
-		if Menu.MainCombo.GodKey then
-        GodMode()
-    end
-        
-    if Menu.Misc.AutoLevel.UseAutoLevel then
-            AutoLevel()
-    end
+	if Menu.MainCombo.GodKey then
+		GodMode()
+	end
+
+	if Menu.Misc.AutoLevel.UseAutoLevel then
+		AutoLevel()
+	end
 end
