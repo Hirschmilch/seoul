@@ -1,5 +1,5 @@
 if myHero.charName ~= "Fiora" then return end
-
+local version = "0.02"
 local qReady, eReady  = false, false
 local QRANGE, RRANGE = 600, 400
 local levelChart = {SPELL_1, SPELL_2, SPELL_3}
@@ -69,7 +69,7 @@ function OnLoad()
     
 	Menu = scriptConfig("Fiora by seoul", "FioraSeoul")
 		Menu:addParam("blank", "", SCRIPT_PARAM_INFO, "")
-		Menu:addParam("version", "Version 0.01", SCRIPT_PARAM_INFO, "")
+		Menu:addParam("version", version, SCRIPT_PARAM_INFO, "")
 		Menu:addSubMenu("Target Selector", "targetSelector")
 		Menu.targetSelector:addTS(ts)
 		ts.name = "Focus"
