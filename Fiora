@@ -34,7 +34,9 @@ rList = {
 	}
 Items = {
 		Hydra  = {id = 3074, Range = 350, Ready = false},
-		Tiamat = {id = 3077, Range = 350, Ready = false}
+		Tiamat = {id = 3077, Range = 350, Ready = false},
+		Ygb = {id = 3142, Ready = false},
+		Botrk = {id = 3153, Ready = false}
 	}
 function OnTickCheck()
 	qReady =  myHero:CanUseSpell(_Q) == READY
@@ -43,6 +45,8 @@ function OnTickCheck()
 	rReady =  myHero:CanUseSpell(_R) == READY
 	Items.Hydra.Ready = GetInventoryItemIsCastable(Items.Hydra.id)
 	Items.Tiamat.Ready = GetInventoryItemIsCastable(Items.Tiamat.id)
+	Items.Ygb.Ready = GetInventoryItemIsCastable(Items.Ygb.id)
+	Items.Botrk.Ready = GetInventoryItemIsCastable(Items.Botrk.id)
 	flashReady = FLASH and myHero:CanUseSpell(FLASH) == READY or false
 end
   
@@ -99,16 +103,26 @@ function CastR()
 	end
 end
 
-function AfterAA()
+function AfterAttack()
 	if Menu.Combo.Key and Menu.Combo.ESet.Mode == 2 and ts.target ~= nil and ValidTarget(ts.target, 250) then
 		CastE()
 	end
-	if Menu.Combo.Key and not eReady and ValidTarget(ts.target, 300) then
-		if Items.Hydra.Ready then CastItem(Items.Hydra.id) end
-		if Items.Tiamat.Ready then CastItem(Items.Tiamat.id) end
+	if Items.Hydra.Ready and Menu.Misc.Item.Hydra then
+		CastItem(Items.Hydra.id)
+	elseif Items.Tiamat.Ready and Menu.Misc.Item.Tiamat then
+		CastItem(Items.Tiamat.id)
 	end
 end
-        
+
+function OnAttack()
+	if Items.Ygb.Ready and Menu.Misc.Item.Ygb then
+		CastItem(Items.Ygb.id)
+	end
+	if Items.Botrk.Ready and Menu.Misc.Item.Botrk then
+		CastItem(Items.Botrk.id, SeoulTarget())
+	end
+end
+
 function KsQ()
 	for i, enemy in ipairs(GetEnemyHeroes()) do
 		qDmg = getDmg("Q", enemy, myHero)
@@ -304,9 +318,11 @@ function Menu()
 	Menu.Misc:addSubMenu("Kill Steal", "Ks")
 	Menu.Misc.Ks:addParam("Q", "Use Q", SCRIPT_PARAM_ONOFF, true)
 	Menu.Misc.Ks:addParam("W", "Use W", SCRIPT_PARAM_ONOFF, true)
-	Menu.Misc:addSubMenu("Items", "Items")
-	Menu.Misc.Items:addParam("Hydra", "Hydra", SCRIPT_PARAM_ONOFF, true)
-	Menu.Misc.Items:addParam("Tiamat", "Tiamat", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc:addSubMenu("Items", "Item")
+	Menu.Misc.Item:addParam("Hydra", "Hydra", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Tiamat", "Tiamat", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Ygb", "Youmuu's Ghostblade", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Botrk", "Blade of the ruined King", SCRIPT_PARAM_ONOFF, true)
 	Menu.Misc:addSubMenu("VIP", "Vip")
 	Menu.Misc.Vip:addParam("Packet", "Use Packets", SCRIPT_PARAM_ONOFF, true)
 	Menu.Misc.Vip:addParam("Skin", "Skin changer", SCRIPT_PARAM_ONOFF, false)
@@ -423,7 +439,8 @@ function OnLoad()
 	ts = TargetSelector(TARGET_LESS_CAST, QRANGE)
 	vp = VPrediction()		
 	sow = SOW(vp)
-	sow:RegisterAfterAttackCallback(AfterAA)
+	sow:RegisterAfterAttackCallback(AfterAttack)
+	sow:RegisterOnAttackCallback(OnAttack)
 	Menu()
 end
 
