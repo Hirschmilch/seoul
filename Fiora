@@ -36,7 +36,7 @@ Items = {
 		Hydra  = {id = 3074, Range = 350, Ready = false},
 		Tiamat = {id = 3077, Range = 350, Ready = false},
 		Ygb = {id = 3142, Ready = false},
-		Botrk = {id = 3153, Ready = false}
+		Botrk = {id = 3153, Range = 450, Ready = false}
 	}
 function OnTickCheck()
 	qReady =  myHero:CanUseSpell(_Q) == READY
@@ -118,7 +118,7 @@ function OnAttack()
 	if Items.Ygb.Ready and Menu.Misc.Item.Ygb then
 		CastItem(Items.Ygb.id)
 	end
-	if Items.Botrk.Ready and Menu.Misc.Item.Botrk then
+	if Items.Botrk.Ready and Menu.Misc.Item.Botrk and ValidTarget(SeoulTarget(), Items.Botrk.Range) then
 		CastItem(Items.Botrk.id, SeoulTarget())
 	end
 end
