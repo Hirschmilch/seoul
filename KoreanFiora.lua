@@ -1,8 +1,30 @@
 if myHero.charName ~= "Fiora" then return end
 
-require 'VPrediction'
-require 'SOW'
+local version = 1.00
+local AUTOUPDATE = true
+local SCRIPT_NAME = "KoreanFiora"
+local SOURCELIB_URL = "https://raw.github.com/TheRealSource/public/master/common/SourceLib.lua"
+local SOURCELIB_PATH = LIB_PATH.."SourceLib.lua"
 
+if FileExist(SOURCELIB_PATH) then
+	require("SourceLib")
+else
+	DONLOADING_SOURCELIB = true
+	DownloadFile(SOURCELIB_URL, SOURCELIB_PATH, function() print("Required libraries downloaded successfully, please reload") end)
+end
+
+if DOWNLOADING_SOURCELIB then print("Downloading required libraries, please wait...") return end
+
+if AUTOUPDATE then
+	 SourceUpdater(SCRIPT_NAME, version, "raw.github.com", "/seoul1/seoul/master/"..SCRIPT_NAME..".lua", SCRIPT_PATH .. GetCurrentEnv().FILE_NAME, "/seoul1/seoul/master/version/"..SCRIPT_NAME..".version"):CheckUpdate()
+end
+
+local RequireI = Require("SourceLib")
+RequireI:Add("vPrediction","https://raw.github.com/Hellsing/BoL/master/common/VPrediction.lua")
+RequireI:Add("SOW", "https://raw.github.com/Hellsing/BoL/master/common/SOW.lua")
+RequireI:Check()
+
+if RequireI.downloadNeeded == true then return end
 local qReady, wReady, eReady, rReady, flashReady  = false, false, false, false, false
 local QRANGE, RRANGE, FLASH = 600, 400, nil
 local lastSkin = 4
