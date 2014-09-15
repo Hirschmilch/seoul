@@ -20,7 +20,7 @@ function Han_Target()
     else
         seoul = ts.target
     end
-		sow:ForceTarget(seoul)
+    sow:ForceTarget(seoul)
 end
 
 local mousex, mousey, targetx, targety = nil, nil, nil, nil
@@ -54,7 +54,7 @@ function Han_Q()
 		q1Time = math.huge
     elseif tokyo and os.clock() > q1Time then
         tokyo = false
-				q1Time = math.huge
+		q1Time = math.huge
     end
 end
 
@@ -65,11 +65,11 @@ function Han_Ult()
 end
 
 function Han_Smuggle()
-  if Menu.Combo.Smuggle and seoul ~= nil then
+    if Menu.Combo.Smuggle and seoul ~= nil then
 		sow:OrbWalk(seoul, mousePos)
-	elseif Menu.Combo.Smuggle then
-		sow:MoveTo(mousePos.x, mousePos.z)
-	end
+    elseif Menu.Combo.Smuggle then
+        sow:MoveTo(mousePos.x, mousePos.z)
+    end
 end
 
 local singapore = true
@@ -96,9 +96,9 @@ function Han_Smuggle_Combo()
 end
 
 function Han_After()
-		if Menu.Combo.Smuggle then
-			Han_Smuggle_Combo()
-		end
+	if Menu.Combo.Smuggle then
+		Han_Smuggle_Combo()
+	end
     if Menu.Combo.Key and Menu.Combo.ESet.E and ValidTarget(seoul, 250) then
         sow:MoveTo(mousePos.x, mousePos.z)
     end
@@ -115,9 +115,9 @@ function Han_After()
 end
 
 function Han_On()
-		if Menu.Combo.Smuggle and GetInventoryItemIsCastable(3153) then
-			CastItem(3153, seoul)
-		end
+    if Menu.Combo.Smuggle and GetInventoryItemIsCastable(3153) then
+		CastItem(3153, seoul)
+	end
     if Menu.Combo.Key and GetInventoryItemIsCastable(3142) and Menu.Misc.Item.Ygb then
         CastItem(3142)
     end
@@ -145,7 +145,7 @@ function Han_Kill()
     for i, enemy in ipairs(GetEnemyHeroes()) do
         if Menu.Misc.Ks.Q then
             if hanq and getDmg("Q", enemy, myHero) > enemy.health and GetDistanceSqr(enemy) <= 360000 and ValidTarget(enemy, 600) then
-                Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkId}):send()
+                 Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkId}):send()
             end
         end
         if Menu.Misc.Ks.Ignite then
@@ -420,7 +420,6 @@ function Menu()
     Menu.Misc:addSubMenu("Items", "Item")
     Menu.Misc.Item:addParam("Hydra", "Hydra", SCRIPT_PARAM_ONOFF, true)
     Menu.Misc.Item:addParam("Tiamat", "Tiamat", SCRIPT_PARAM_ONOFF, true)
-        --Menu.Misc.Item:addParam("Air", "Try to cast mid air q", SCRIPT_PARAM_ONOFF, true)
     Menu.Misc.Item:addParam("Ygb", "Youmuu's Ghostblade", SCRIPT_PARAM_ONOFF, true)
     Menu.Misc.Item:addParam("Botrk", "Blade of the ruined King", SCRIPT_PARAM_ONOFF, true)
     Menu.Misc.Item:addParam("SetBotrk1", "Botrk if my HP <= %", SCRIPT_PARAM_SLICE, 20, 0, 100)
@@ -569,8 +568,8 @@ function OnTick()
     Han_Magnet()
     Han_WTick()
     Han_Tick()
-    Han()
-		Han_Smuggle()
+    Han()  
+    Han_Smuggle()
     Han_Kill()
     Skin()
 end
