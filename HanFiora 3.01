@@ -3,7 +3,7 @@ if myHero.charName ~= "Fiora" or not VIP_USER then return end
 require 'VPrediction'
 require 'SOW'
 
-local version = 3.00
+local version = 3.01
 local seoul, hanq, hanw, hanr, hani = nil, false, false, false, false
 local lastSkin = 4
 
