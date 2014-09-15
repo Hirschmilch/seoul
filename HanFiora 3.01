@@ -56,7 +56,7 @@ function Han_Q()
 end
 
 function Han_QTick()
-    if q1Time ~= math.huge and tokyo and os.clock() > q1Time then
+    if q1Time < math.huge and tokyo and os.clock() > q1Time then
         tokyo = false
         q1Time = math.huge
     end
