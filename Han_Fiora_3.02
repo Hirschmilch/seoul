@@ -19,11 +19,11 @@ function Han_Target()
 	ts:update()
 	seoul = nil
 	if selectedTar and Menu.Combo.Lock then
-		if not ValidTarget(selectedTar, 1500) then
-			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Too far away!</font>")
+		if selectedTar.dead or myHero.dead then
+			print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
 			selectedTar = nil
-		elseif selectedTar.dead or myHero.dead then
-			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Dead!</font>")
+		elseif not ValidTarget(selectedTar, 1500) then
+			print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
 			selectedTar = nil
 		else
 			seoul = selectedTar
@@ -48,10 +48,10 @@ function OnWndMsg(Msg, Key)
         if starget then
             if selectedTar and starget.charName == selectedTar.charName then
                 selectedTar = nil
-                print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..starget.charName..". Thx Bilbao</font>")
+                print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..". Thx Bilbao</font>")
             else
                 selectedTar = starget               
-                print("<font color=\"#FF0000\">Fiora: New target <b>selected</b>: "..starget.charName..". Thx Bilbao</font>")
+                print("<font color=\"#FFFFFF\">Fiora: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..". Thx Bilbao</font>")
             end
         end
     end
@@ -410,7 +410,7 @@ function Han_WTick()
 end
 
 function Han_R(unit, spell)
-    if hanr and not unit.isMe and unit.type == myHero.type and unit.team ~= myHero.team and GetDistance(spell.endPos) < 1000 and Menu.Combo.RSet[unit.charName] and rList[unit.charName] ~= nil and (spell.name:find(rList[unit.charName]) ~= nil) then
+    if hanr and not unit.isMe and unit.type == myHero.type and unit.team ~= myHero.team and GetDistance(spell.endPos) < 1000 and Menu.Combo.RSet[unit.charName] and rlist[unit.charName] ~= nil and (spell.name:find(rlist[unit.charName]) ~= nil) then
         _ENV["Han_"..unit.charName](unit, spell)
     end
 end
