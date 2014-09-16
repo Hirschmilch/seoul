@@ -18,15 +18,11 @@ local selectedTar = nil
 function Han_Target()
 	ts:update()
 	seoul = nil
-	if selectedTar and Menu.Combo.Lock and (not ValidTarget(selectedTar, 1500) or selectedTar.dead or myHero.dead) then
-		selectedTar = nil
-		print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..starget.charName..". Thx Bilbao</font>")
-	end
 	if selectedTar and Menu.Combo.Lock then
 		if not ValidTarget(selectedTar, 1500) then
 			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Too far away!</font>")
 			selectedTar = nil
-		elseif selecteTar.dead or myHero.dead then
+		elseif selectedTar.dead or myHero.dead then
 			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Dead!</font>")
 			selectedTar = nil
 		else
