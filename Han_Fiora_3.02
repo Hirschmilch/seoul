@@ -16,18 +16,30 @@ end
 -- bilbao start
 local selectedTar = nil
 function Han_Target()
-    ts:update()
-		seoul = nil
-    if selectedTar then 
-        seoul = selectedTar
-    else 
-        seoul = ts.target
-    end
-    sow:ForceTarget(seoul)
+	ts:update()
+	seoul = nil
+	if selectedTar and Menu.Combo.Lock and (not ValidTarget(selectedTar, 1500) or selectedTar.dead or myHero.dead) then
+		selectedTar = nil
+		print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..starget.charName..". Thx Bilbao</font>")
+	end
+	if selectedTar and Menu.Combo.Lock then
+		if not ValidTarget(selectedTar, 1500) then
+			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Too far away!</font>"
+			selectedTar = nil
+		elseif selecteTar.dead or myHero.dead then
+			print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..selectedTar.charName..". Dead!</font>"
+			selectedTar = nil
+		else
+			seoul = selectedTar
+		end
+	else 
+        	seoul = ts.target
+    	end
+    	sow:ForceTarget(seoul)
 end
 
 function OnWndMsg(Msg, Key)
-    if Msg == WM_LBUTTONDOWN then
+    if Msg == WM_LBUTTONDOWN and Menu.Combo.Lock then
         local minD = 200
         local starget = nil
         for i, enemy in ipairs(GetEnemyHeroes()) do
@@ -551,7 +563,6 @@ function GenModelPacket(champ, skinId)
     RecvPacket(p)
 end
 
---[[Credits to barasia, vadash and viseversa for anti-lag circles]]
 function round(num) 
 	if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
 end
@@ -582,7 +593,7 @@ end
 function OnDraw()
     if Menu.Misc.Draw.Q then
 			if Menu.Misc.Draw.Free then
-			  DrawCircle2(myHero.x, myHero.y, myHero.z, 600, ARGB(255, 255, 231, 6))
+				DrawCircle2(myHero.x, myHero.y, myHero.z, 600, ARGB(255, 255, 231, 6))
       else
 				DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0xcfe709)
 			end
