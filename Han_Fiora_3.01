@@ -13,15 +13,42 @@ function Han()
     Han_Ult()
 end 
 
+-- bilbao start
+local selectedTar = nil
 function Han_Target()
     ts:update()
-    if Menu.Combo.Lock and GetTarget() ~= nil then
-        seoul = GetTarget()
-    else
+		seoul = nil
+    if selectedTar then 
+        seoul = selectedTar
+    else 
         seoul = ts.target
     end
     sow:ForceTarget(seoul)
 end
+
+function OnWndMsg(Msg, Key)
+    if Msg == WM_LBUTTONDOWN and Menu.Combo.Lock then
+        local minD = 200
+        local starget = nil
+        for i, enemy in ipairs(GetEnemyHeroes()) do
+            if ValidTarget(enemy) then
+                if GetDistance(enemy, mousePos) <= minD then
+                    starget = enemy
+                end
+            end
+        end     
+        if starget then
+            if selectedTar and starget.charName == selectedTar.charName then
+                selectedTar = nil
+                print("<font color=\"#FF0000\">Fiora: Target <b>UNSELECTED</b>: "..starget.charName..". Bilbao so cute :3</font>")
+            else
+                selectedTar = starget               
+                print("<font color=\"#FF0000\">Fiora: New target <b>selected</b>: "..starget.charName..". Bilbao so cute :3</font>")
+            end
+        end
+    end
+end
+-- bilbao end
 
 local mousex, mousey, targetx, targety = nil, nil, nil, nil
 function Han_Magnet()
@@ -41,24 +68,9 @@ function Han_Botrk()
     end
 end
 
-local tokyo = false
-local q1Time = math.huge
 function Han_Q()
-    if Menu.Combo.Key and not tokyo and hanq and seoul ~= nil and GetDistanceSqr(seoul) >= (Menu.Combo.QSet.QBuffer)^2 and Menu.Combo.QSet.Q then
+    if Menu.Combo.Key and hanq and seoul and GetDistanceSqr(seoul) >= (Menu.Combo.QSet.QBuffer)^2 and Menu.Combo.QSet.Q then
         Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
-        tokyo = true
-        q1Time = os.clock() + 4
-    elseif Menu.Combo.Key and tokyo and hanq and seoul ~= nil and (Menu.Combo.QSet.Q2Buffer > 250 or not Menu.Combo.QSet.QAfter) and GetDistanceSqr(seoul) >= (Menu.Combo.QSet.Q2Buffer)^2 and os.clock() > (q1Time - 3.65) and Menu.Combo.QSet.Q then
-        Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
-        tokyo = false
-        q1Time = math.huge
-    end
-end
-
-function Han_QTick()
-    if q1Time < math.huge and tokyo and os.clock() > q1Time then
-        tokyo = false
-        q1Time = math.huge
     end
 end
 
@@ -68,53 +80,49 @@ function Han_Ult()
     end
 end
 
-function Han_Smuggle()
-    if Menu.Combo.Smuggle and seoul ~= nil then
-        sow:OrbWalk(seoul, mousePos)
-    elseif Menu.Combo.Smuggle then
-        sow:MoveTo(mousePos.x, mousePos.z)
-    end
-end
-
-local singapore = true
-function Han_Smuggle_Combo()
-    if singapore then
-        if hanw then
+function Han_After()
+    if Menu.Combo.Key and Menu.Combo.HAN and seoul and ValidTarget(seoul, 275) then
+        if hane and myHero:GetSpellData(_Q).currentCd < 0.010  then 
             Packet("S_CAST", {spellId = _E}):send()
-        end
-        if hanq and seoul ~= nil then 
+			Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+            --DelayAction(function()
+               --   Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+          --  end, 0.010)
+				elseif hane and ((GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra) or (GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat)) then
+					Packet("S_CAST", {spellId = _E}):send()
+					if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+						CastItem(3074)
+					elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+						CastItem(3077)
+          end
+        elseif not hane and hanq then
             Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
-        end
-        singapore = false
-    elseif not singapore then
-        if hanq and seoul ~= nil then
-            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
-        end
-        if Menu.Combo.Smuggle and GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+                CastItem(3077)
+            end
+        elseif hane then 
+            Packet("S_CAST", {spellId = _E}):send()
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+                CastItem(3077)
+            end
+        elseif GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
             CastItem(3074)
-        elseif Menu.Combo.Smuggle and GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+        elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+            CastItem(3077)
+		elseif hanq then
+			Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+        end
+    elseif Menu.Combo.Key and seoul and ValidTarget(seoul, 275) then
+        if hane then Packet("S_CAST", {spellId = _E}):send() end
+        if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+            CastItem(3074)
+        elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
             CastItem(3077)
         end
-        singapore = true
-    end
-end
-
-function Han_After()
-    if Menu.Combo.Smuggle then
-        Han_Smuggle_Combo()
-    end
-    if Menu.Combo.Key and Menu.Combo.ESet.E and ValidTarget(seoul, 250) then
-        sow:MoveTo(mousePos.x, mousePos.z)
-    end
-
-    if Menu.Combo.Key and GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
-        CastItem(3074)
-    elseif Menu.Combo.Key and GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
-        CastItem(3077)
-    end
-
-    if Menu.Combo.Key and hanq and seoul ~= nil and Menu.Combo.QSet.Q2Buffer <= 250 and Menu.Combo.QSet.QAfter and Menu.Combo.QSet.Q then
-        Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
     end
 end
 
@@ -439,10 +447,8 @@ function Menu()
     
     Menu:addSubMenu("Han Combo", "Combo")
     Menu.Combo:addSubMenu("Q Settings", "QSet")
-    Menu.Combo.QSet:addParam("QBuffer", "1st Q Buffer", SCRIPT_PARAM_SLICE, 325, 0, 600, 0)
-    Menu.Combo.QSet:addParam("Q2Buffer", "2nd Q Buffer", SCRIPT_PARAM_SLICE, 325, 0, 600, 0)
-        Menu.Combo.QSet:addParam("QAfter", "Q After AA if 2nd Buffer <= 250", SCRIPT_PARAM_ONOFF, true)
-    Menu.Combo.QSet:addParam("Q", "Use Q", SCRIPT_PARAM_ONOFF, true)
+    Menu.Combo.QSet:addParam("QBuffer", "Q Buffer", SCRIPT_PARAM_SLICE, 325, 0, 600, 0)
+    Menu.Combo.QSet:addParam("Q", "Q Buffer", SCRIPT_PARAM_ONOFF, true)
     Menu.Combo:addSubMenu("W Settings", "WSet")
     Menu.Combo.WSet:addParam("Vip", "Use VIP W", SCRIPT_PARAM_ONOFF, true)
     Menu.Combo.WSet:addParam("blank", "", SCRIPT_PARAM_INFO, "")
@@ -468,7 +474,7 @@ function Menu()
         end
     end
     if not wPredict then
-        Menu.Combo.WSet:addParam("wNotSupported","No spells supported", SCRIPT_PARAM_INFO, "")
+        Menu.Combo.WSet:addParam("wNotSupported","No dodgable spells in current game", SCRIPT_PARAM_INFO, "")
     end
 
     Menu.Combo:addSubMenu("E Settings", "ESet")
@@ -486,7 +492,7 @@ function Menu()
         end
     end
     if not rPredict then
-        Menu.Combo.RSet:addParam("rNotSupported","Not Supported", SCRIPT_PARAM_INFO, "")
+        Menu.Combo.RSet:addParam("rNotSupported","No dodgable spells in current game", SCRIPT_PARAM_INFO, "")
     end
     Menu.Combo.RSet:addParam("blank", "", SCRIPT_PARAM_INFO, "")
     Menu.Combo.RSet:addParam("blank", "For Evade script users:", SCRIPT_PARAM_INFO, "")
@@ -496,7 +502,7 @@ function Menu()
     Menu.Combo:addParam("Magnet", "Use Magnet", SCRIPT_PARAM_ONOFF, true)
     Menu.Combo:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 0, myHero.range-1 )
     Menu.Combo:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
-        Menu.Combo:addParam("Smuggle", "Han Smuggle", SCRIPT_PARAM_ONKEYDOWN, false, 86)
+    Menu.Combo:addParam("HAN", "Use max dmg combo", SCRIPT_PARAM_ONOFF, true)
     Menu.Combo:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 end
 
@@ -540,7 +546,7 @@ end
 
 function OnDraw()
     if Menu.Misc.Draw.Q then
-        DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0x111111)
+        DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0xcfe709)
     end
   
     if Menu.Misc.Draw.R then
@@ -556,12 +562,13 @@ function OnLoad()
     sow:RegisterOnAttackCallback(Han_On)
     Menu()
     Han_Summoner()
-    PrintChat("Han Fiora loaded. version 3.00")
+    PrintChat("<font color=\"#cfe709\">Han Fiora loaded. Version "..version.."</font>")
 end
 
 function Han_Tick()
     hanq =  myHero:CanUseSpell(_Q) == READY
     hanw =  myHero:CanUseSpell(_W) == READY
+	hane =  myHero:CanUseSpell(_E) == READY
     hanr =  myHero:CanUseSpell(_R) == READY
     hani = IGNITE and myHero:CanUseSpell(IGNITE) == READY or false
 end
@@ -572,9 +579,7 @@ function OnTick()
     Han_Magnet()
     Han_WTick()
     Han_Tick()
-    Han()
-    Han_QTick()  
-    Han_Smuggle()
+    Han()  
     Han_Kill()
     Skin()
 end
