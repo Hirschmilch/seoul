@@ -625,7 +625,7 @@ function Han_Tick()
     hanr =  myHero:CanUseSpell(_R) == READY
     hani = IGNITE and myHero:CanUseSpell(IGNITE) == READY or false
 end
- local tam = true
+
 function OnTick()
     Han_Target()
     Han_Magnet()
