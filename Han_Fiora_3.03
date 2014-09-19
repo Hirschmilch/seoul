@@ -48,10 +48,10 @@ function OnWndMsg(Msg, Key)
         if starget then
             if selectedTar and starget.charName == selectedTar.charName then
                 selectedTar = nil
-                print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..". Thx Bilbao</font>")
+                print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..".</font>")
             else
                 selectedTar = starget               
-                print("<font color=\"#FFFFFF\">Fiora: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..". Thx Bilbao</font>")
+                print("<font color=\"#FFFFFF\">Fiora: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..".</font>")
             end
         end
     end
