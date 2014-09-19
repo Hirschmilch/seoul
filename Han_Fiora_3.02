@@ -517,7 +517,7 @@ function Menu()
     Menu.Combo:addParam("Magnet", "Use Magnet", SCRIPT_PARAM_ONOFF, true)
     Menu.Combo:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 0, myHero.range-1 )
     Menu.Combo:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
-    Menu.Combo:addParam("HAN", "Use q for max dmg combo", SCRIPT_PARAM_ONOFF, true)
+    Menu.Combo:addParam("HAN", "Use q inbetween aa", SCRIPT_PARAM_ONOFF, false)
     Menu.Combo:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 end
 
