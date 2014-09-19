@@ -16,21 +16,21 @@ end
 -- bilbao start
 local selectedTar = nil
 function Han_Target()
-	ts:update()
-	seoul = nil
-	if selectedTar and Menu.Lock then
-		if selectedTar.dead or myHero.dead then
-			print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
-			selectedTar = nil
-		elseif not ValidTarget(selectedTar, 1500) then
-			print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
-			selectedTar = nil
-		else
-			seoul = selectedTar
-		end
-	else 
-        	seoul = ts.target
-    	end
+    ts:update()
+    seoul = nil
+    if selectedTar and Menu.Lock then
+        if selectedTar.dead or myHero.dead then
+            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
+            selectedTar = nil
+        elseif not ValidTarget(selectedTar, 1500) then
+            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
+            selectedTar = nil
+        else
+            seoul = selectedTar
+        end
+    else 
+            seoul = ts.target
+        end
     sow:ForceTarget(seoul)
 end
 
@@ -73,10 +73,10 @@ function Han_Botrk()
     local health = myHero.health
     if Menu.Key and seoul ~= nil and GetDistanceSqr(seoul) < 202500 and ValidTarget(seoul, 450) and (health <= Menu.Misc.Item.SetBotrk1 or health >= Menu.Misc.Item.SetBotrk2) then
         if Menu.Misc.Item.Botrk and GetInventoryItemIsCastable(3153) then
-					CastItem(3153, seoul)
-				elseif Menu.Misc.Item.Bwc and GetInventorySlotItem(3144) then
-					CastItem(3144, seoul)
-				end
+                    CastItem(3153, seoul)
+                elseif Menu.Misc.Item.Bwc and GetInventorySlotItem(3144) then
+                    CastItem(3144, seoul)
+                end
     end
 end
 
@@ -96,17 +96,17 @@ function Han_After()
     if Menu.Key and Menu.QSet.HAN and seoul and ValidTarget(seoul, 275) then
         if hane and myHero:GetSpellData(_Q).currentCd < 0.010  then 
             Packet("S_CAST", {spellId = _E}):send()
-			Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
             --DelayAction(function()
                --   Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
           --  end, 0.010)
-		elseif hane and ((GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra) or (GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat)) then
-			Packet("S_CAST", {spellId = _E}):send()
-			if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
-				CastItem(3074)
-			elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
-			CastItem(3077)
-         	end
+        elseif hane and ((GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra) or (GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat)) then
+            Packet("S_CAST", {spellId = _E}):send()
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+            CastItem(3077)
+            end
         elseif not hane and hanq then
             Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
             if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
@@ -125,8 +125,8 @@ function Han_After()
             CastItem(3074)
         elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
             CastItem(3077)
-		elseif hanq then
-			Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+        elseif hanq then
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
         end
     elseif Menu.Key and seoul and ValidTarget(seoul, 275) then
         if hane then Packet("S_CAST", {spellId = _E}):send() end
@@ -509,14 +509,10 @@ function Menu()
         GenModelPacket("Fiora", Menu.Misc.Vip.Select)
         lastSkin = Menu.Misc.Vip.Select
     end       
-
-    Menu:addParam("blank", "", SCRIPT_PARAM_INFO, "")
     Menu:addParam("Magnet", "Use Magnet", SCRIPT_PARAM_ONOFF, true)
     Menu:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 0, myHero.range-1 )
     Menu:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
     Menu:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
-    Menu:addParam("blank2", "", SCRIPT_PARAM_INFO, "")
-    Menu:addParam("version", "Version "..version, SCRIPT_PARAM_INFO, "")
 end
 
 local skinFix = 0
@@ -558,7 +554,7 @@ function GenModelPacket(champ, skinId)
 end
 
 function round(num) 
-	if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
+    if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
 end
 
 function DrawCircleNextLvl(x, y, z, radius, width, color, chordlength)
@@ -586,28 +582,28 @@ end
 
 function OnDraw()
     if Menu.Misc.Draw.Q then
-			if Menu.Misc.Draw.Free then
-				DrawCircle2(myHero.x, myHero.y, myHero.z, 600, ARGB(255, 255, 231, 6))
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, 600, ARGB(255, 255, 231, 6))
       else
-				DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0xcfe709)
-			end
+                DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0xcfe709)
+            end
     end
-		if Menu.Misc.Draw.QBuffer then
-			if Menu.Misc.Draw.Free then
-				DrawCircle2(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, ARGB(255, 0, 51, 51))
-			else
-				DrawCircle(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, 0x003333)
-			end
-		end
+        if Menu.Misc.Draw.QBuffer then
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, ARGB(255, 0, 51, 51))
+            else
+                DrawCircle(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, 0x003333)
+            end
+        end
     if Menu.Misc.Draw.R then
-			if Menu.Misc.Draw.Free then
-				DrawCircle2(myHero.x, myHero.y, myHero.z, 400, ARGB(255, 190, 190, 190))
-			else
-        		DrawCircle(myHero.x, myHero.y, myHero.z, 400, 0x111111)
-			end
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, 400, ARGB(255, 190, 190, 190))
+            else
+                DrawCircle(myHero.x, myHero.y, myHero.z, 400, 0x111111)
+            end
     end
     if Menu.Misc.Draw.Target and seoul then
-    	DrawCircle2(seoul.x, seoul.y, seoul.z, 100, ARGB(255, 255, 0, 0))
+        DrawCircle2(seoul.x, seoul.y, seoul.z, 100, ARGB(255, 255, 0, 0))
     end
 end
 
@@ -619,19 +615,18 @@ function OnLoad()
     sow:RegisterOnAttackCallback(Han_On)
     Menu()
     Han_Summoner()
-    PrintChat("<font color=\"#cfe709\">Han Fiora loaded. Version "..version.."</font>")
+    PrintChat("<font color=\"#cfe709\">Han Fiora loaded succesfully. Version <font color=\"#00FF00\">"..version.."</font>.</font>")
 end
 
 function Han_Tick()
     hanq =  myHero:CanUseSpell(_Q) == READY
     hanw =  myHero:CanUseSpell(_W) == READY
-	hane =  myHero:CanUseSpell(_E) == READY
+    hane =  myHero:CanUseSpell(_E) == READY
     hanr =  myHero:CanUseSpell(_R) == READY
     hani = IGNITE and myHero:CanUseSpell(IGNITE) == READY or false
 end
-  
+ local tam = true
 function OnTick()
-    if myHero.dead then return end
     Han_Target()
     Han_Magnet()
     Han_WTick()
