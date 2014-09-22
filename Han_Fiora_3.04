@@ -530,7 +530,7 @@ function Menu()
     Menu:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 0, myHero.range-1 )
     Menu:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
     Menu:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
-		Menu:addParam("Percent", "Percent" , SCRIPT_PARAM_SLICE, 90, 1, 200)
+		--Menu:addParam("Percent", "Percent" , SCRIPT_PARAM_SLICE, 90, 1, 200)
 end
 
 local skinFix = 0
