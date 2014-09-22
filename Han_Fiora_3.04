@@ -377,9 +377,9 @@ function Han_W(unit, spell)
 								local wCalc = {castTime = (shanghai+koreanwind)-GetLatency()-100}
 								table.insert(Han_Pre, wCalc)
                 table.insert(ActiveAttacks, unit.networkID)
-            elseif hanw and unit.team ~= myHero.team and Menu.WSet[unit.charName].Spell and wlist[unit.charName] ~= nil and (spell.name:find(wlist[unit.charName]) ~= nil) then
+            elseif hanw and unit.team ~= myHero.team and unit.type == myHero.type and Menu.WSet[unit.charName].Spell and wlist[unit.charName] ~= nil and (spell.name:find(wlist[unit.charName]) ~= nil) then
                 Packet("S_CAST", {spellId = _W}):send() 
-            elseif hanw and (((spell.name:find("Attack") ~= nil) and GetDistance(spell.endPos) < 1 and Menu.WSet[unit.charName].Basic) or (Menu.WSet[unit.charName].Spell and wlist[unit.charName] ~= nil and (spell.name:find(wlist[unit.charName]) ~= nil))) and unit.team ~= myHero.team and unit.type == myHero.type then
+            elseif hanw and unit.team ~= myHero.team and unit.type == myHero.typ and (((spell.name:find("Attack") ~= nil) and GetDistance(spell.endPos) < 1 and Menu.WSet[unit.charName].Basic) or (Menu.WSet[unit.charName].Spell and wlist[unit.charName] ~= nil and (spell.name:find(wlist[unit.charName]) ~= nil))) then
 						  Packet("S_CAST", {spellId = _W}):send()
 						end
         end
