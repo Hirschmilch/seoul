@@ -157,7 +157,7 @@ function Han_R()
 	if Menu.Key and Menu.RSet.UseHp and hanr and hunq then
 		ts.range  = 1200
 		Han_Target(false)
-		if seoul and seoul.health/seoul.maxHealth < seoul.maxHealth*(Menu.RSet.Hp/100) then
+		if seoul and seoul.health < seoul.maxHealth*(Menu.RSet.Hp/100) then
 			local CastPosition, HitChance, Position = vp:GetLineCastPosition(seoul, 0.5, 70, 1200, 779, myHero, false)
 			if HitChance > 1 then
 				CastSpell(_R, CastPosition.x, CastPosition.z)
