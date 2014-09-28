@@ -91,7 +91,7 @@ function Han_Botrk()
 	ts.range = 450
 	Han_Target(false)
 	if ValidTarget(seoul, 450) then
-		if (health <= Menu.Misc.Item.SetBotrk1 or health >= Menu.Misc.Item.SetBotrk2) then
+		if (health <= (Menu.Misc.Item.SetBotrk1/100)*myHero.maxHealth or health >= (Menu.Misc.Item.SetBotrk2/100)*myHero.maxHealth) then
 			if GetInventoryItemIsCastable(3153) and Menu.Misc.Item.Botrk then
 				CastItem(3153, seoul)
 			elseif GetInventoryItemIsCastable(3144) and Menu.Misc.Item.Bwc then
