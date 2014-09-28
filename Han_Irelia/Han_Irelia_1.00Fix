@@ -167,7 +167,7 @@ function Han_R()
 				hung = false
 				DelayAction(function() hoax = false hung = true end, 15)
 			end
-		elseif seoul and hoax < 4 then
+		elseif seoul and hoax then
 			local CastPosition, HitChance, Position = vp:GetLineCastPosition(seoul, 0.5, 70, 1200, 779, myHero, false)
 			if HitChance > 1 then
 				CastSpell(_R, CastPosition.x, CastPosition.z)
