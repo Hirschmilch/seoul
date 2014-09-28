@@ -11,10 +11,10 @@ function Han_Target(shanghai)
     seoul = nil
     if selectedTar and Menu.Lock then
         if selectedTar.dead or myHero.dead then
-            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
+            print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
             selectedTar = nil
         elseif not ValidTarget(selectedTar, 1500) then
-            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
+            print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
             selectedTar = nil
         else
             seoul = selectedTar
