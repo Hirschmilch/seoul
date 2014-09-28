@@ -1,0 +1,465 @@
+if myHero.charName ~= "Irelia" or not VIP_USER then return end
+
+require 'VPrediction'
+require 'SOW'
+
+local version = 1.00
+local seoul, selectedTar hanq, hanw, hanr, hani = nil, nil, false, false, false, false
+
+function Han_Target(shanghai)
+    ts:update()
+    seoul = nil
+    if selectedTar and Menu.Lock then
+        if selectedTar.dead or myHero.dead then
+            print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
+            selectedTar = nil
+        elseif not ValidTarget(selectedTar, 1500) then
+            print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
+            selectedTar = nil
+        else
+            seoul = selectedTar
+        end
+    else 
+        seoul = ts.target
+    end
+    if shanghai then sow:ForceTarget(seoul) end
+end
+
+function OnWndMsg(Msg, Key)
+    if Msg == WM_LBUTTONDOWN and Menu.Lock then
+        local minD = 200
+        local starget = nil
+        for i, enemy in ipairs(GetEnemyHeroes()) do
+            if ValidTarget(enemy) then
+                if GetDistance(enemy, mousePos) <= minD then
+                    starget = enemy
+                end
+            end
+        end     
+        if starget then
+            if selectedTar and starget.charName == selectedTar.charName then
+                selectedTar = nil
+                print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..".</font>")
+            else
+                selectedTar = starget               
+                print("<font color=\"#FFFFFF\">Irelia: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..".</font>")
+            end
+        end
+    end
+end
+
+local mousex, mousey, targetx, targety = nil, nil, nil, nil
+function Han_Magnet()
+    if Menu.Key and seoul and Menu.Magnet and GetDistance(seoul) < 127 then
+        mousex, mousey, targetx, targety = mousePos.x, mousePos.z, seoul.x, seoul.z
+        local distance = (mousex-targetx)^2 + (mousey-targety)^2
+        if distance < Menu.MagnetRange^2 then
+            sow:OrbWalk(seoul, myHero)
+        end
+    end
+end
+
+function Han_Thintuc(phatnam, object)
+	if phatnam == "q" then
+		local dmg = (30*myHero:GetSpellData(_Q).level-10+myHero.damage+myHero.addDamage)*(100/(100+(object.armor*myHero.armorPenPercent-myHero.armorPen)))
+		return dmg
+	elseif phatnam == "e" then
+		local dmg = ((30+50*myHero:GetSpellData(_Q).level)+myHero.ap*0.5)*(100/(100+(object.magicArmor*myHero.magicPenPercent-myHero.magicPen))) 	
+		return dmg
+	elseif phatnam == "r" then
+		local dmg = (40+40*myHero:GetSpellData(_R).level+(myHero.damage+myHero.addDamage)*0.2)*(100/(100+(object.armor*myHero.armorPenPercent-myHero.armorPen))) + ((myHero.ap*0.5)*(100/(100+(object.magicArmor*myHero.magicPenPercent-myHero.magicPen))))
+		return dmg
+	elseif phatnam == "aa" then
+		local dmg = (myHero.damage+myHero.addDamage)*(100/(100+(object.armor*myHero.armorPenPercent-myHero.armorPen)))
+		return dmg
+	end
+end
+
+function Han()
+	if Menu.Key then
+		Han_Q()
+		Han_Botrk()
+	end
+	Han_R()
+	Han_E()
+	Han_Kill()
+	Han_Dongtruyeng()
+end
+
+function Han_Botrk()
+	local health = myHero.health
+	ts.range = 450
+	Han_Target(false)
+	if ValidTarget(seoul, 450) then
+		if (health <= (Menu.Misc.Item.SetBotrk1/100)*myHero.maxHealth or health >= (Menu.Misc.Item.SetBotrk2/100)*myHero.maxHealth) then
+			if GetInventoryItemIsCastable(3153) and Menu.Misc.Item.Botrk then
+				CastItem(3153, seoul)
+			elseif GetInventoryItemIsCastable(3144) and Menu.Misc.Item.Bwc then
+				CastItem(3144, seoul)
+			end
+		end
+		if GetInventoryItemIsCastable(3143) and Menu.Misc.Item.Omen then
+			CastItem(3143)
+		end
+	end
+	ts.range = 325
+	Han_Target(false)
+end
+
+function Han_Q()
+	ts.range = 650
+	Han_Target(false)
+	if Menu.QSet.Use and hanq and ValidTarget(seoul, 650) and Menu.QSet.Buffer^2 <= GetDistanceSqr(seoul) then
+		Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+	end
+	ts.range = 325
+	Han_Target(false)
+end
+
+local tea = false
+local hanlog1 = true
+local hanlog2 = false
+function Han_E()
+	if Menu.ESet.Stun and hanlog1 then
+		Menu.ESet.Smart = false
+		hanlog1 = false
+		hanlog2 = true
+	elseif not Menu.ESet.Smart and not hanlog2 then
+		Menu.ESet.Stun = true
+		hanlog1 = false
+		hanlog2 = true
+	elseif Menu.ESet.Smart and hanlog2 then
+		Menu.ESet.Stun = false
+		hanlog1 = true
+		hanlog2 = false
+	elseif not Menu.ESet.Stun and not hanlog1 then
+		Menu.ESet.Smart = true
+		hanlog1 = true
+		hanlog2 = false
+	end
+	
+	if Menu.Key then
+		if Menu.ESet.Smart then
+			if not tea and hane and ValidTarget(seoul, 250) and myHero.health/myHero.maxHealth - seoul.health/seoul.maxHealth > 0.3 then
+				tea = true
+				DelayAction(function() tea = false end, 1)
+			end
+		elseif hane and ValidTarget(seoul, 250) and myHero.health/myHero.maxHealth < seoul.health/seoul.maxHealth then
+			Packet("S_CAST", {spellId = _E, targetNetworkId = seoul.networkID}):send()
+		end
+	end
+end
+
+local hoax = false
+local hung = true
+local hunq = true
+function Han_R()
+	if Menu.Key and Menu.RSet.UseHp and hanr and hunq then
+		ts.range  = 1200
+		Han_Target(false)
+		if seoul and seoul.health/seoul.maxHealth < seoul.maxHealth*(Menu.RSet.Hp/100) then
+			local CastPosition, HitChance, Position = vp:GetLineCastPosition(seoul, 0.5, 70, 1200, 779, myHero, false)
+			if HitChance > 1 then
+				CastSpell(_R, CastPosition.x, CastPosition.z)
+			end
+			if hung then
+				hoax = true
+				hung = false
+				DelayAction(function() hoax = false hung = true end, 15)
+			end
+		elseif seoul and hoax < 4 then
+			local CastPosition, HitChance, Position = vp:GetLineCastPosition(seoul, 0.5, 70, 1200, 779, myHero, false)
+			if HitChance > 1 then
+				CastSpell(_R, CastPosition.x, CastPosition.z)
+			end
+		end
+		ts.range = 325
+		Han_Target(false)
+	end
+	if Menu.RSet.UseHelper and Menu.RSet.Key and hanr and hung and hunq then
+		hunq = false
+		DelayAction(function() hunq = true end, 15)
+	elseif not hunq then
+	 	ts.range  = 1200
+		Han_Target(false)
+		if seoul then
+			local CastPosition, HitChance, Position = vp:GetLineCastPosition(seoul, 0.5, 70, 1200, 779, myHero, false)
+			if HitChance > 1 then
+				CastSpell(_R, CastPosition.x, CastPosition.z)
+			end
+		end
+		ts.range = 325
+		Han_Target(false)
+	end
+end
+
+local minionindicator = {}
+function Han_Dongtruyeng()
+	if Menu.QSet.Misc.Draw or Menu.QSet.Misc.Auto then
+		ENEMY_MINION:update()
+		for i, minion in pairs(ENEMY_MINION.objects) do
+			if minion and minion.health < Han_Thintuc("q", minion) then
+				table.insert(minionindicator, minion)
+			end
+		end
+		for i = 1, #minionindicator, 1 do
+			if Menu.QSet.Misc.Auto and hanq and ValidTarget(minionindicator[i], 650) then
+				Packet("S_CAST", {spellId = _Q, targetNetworkId = minionindicator[i].networkID}):send()
+				table.remove(minionindicator, i)
+			elseif not ValidTarget(minionindicator[i], 650) then
+				table.remove(minionindicator, i)
+			end
+		end
+	end
+end
+
+function Han_On()
+	if Menu.Key then
+		if hanw then
+			Packet("S_CAST", {spellId = _W}):send()
+		end
+		if GetInventoryItemIsCastable(3142) and Menu.Misc.Item.Ygb then
+			CastItem(3142)
+		end
+	end
+end
+
+function Han_After()
+	if Menu.Key then
+		if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then 
+			CastItem(3074)
+		elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then 
+			CastItem(3077) 
+		end
+		if tea and hane and ValidTarget(seoul, 250) then
+			Packet("S_CAST", {spellId = _E, targetNetworkId = seoul.networkID}):send()
+		end
+	end
+end
+
+local FLASH, IGNITE = nil, nil
+function Han_Summoner()
+	if myHero:GetSpellData(SUMMONER_1).name:find("summonerflash") then
+		FLASH = SUMMONER_1
+	elseif myHero:GetSpellData(SUMMONER_2).name:find("summonerflash") then
+		FLASH = SUMMONER_2
+	else
+		FLASH = nil
+	end
+	if myHero:GetSpellData(SUMMONER_1).name:find("summonerdot") then
+		IGNITE = SUMMONER_1
+	elseif myHero:GetSpellData(SUMMONER_2).name:find("summonerdot") then
+		IGNITE = SUMMONER_2
+	else
+		IGNITE = nil
+	end
+end
+
+function Han_Kill()
+	for i, enemy in ipairs(GetEnemyHeroes()) do
+		if Menu.Misc.Ks.Q  and enemy.health < Han_Thintuc("q", enemy) and ValidTarget(enemy, 650) then
+			CastSpell(_Q, enemy)
+		end
+		if Menu.Misc.Ks.E and enemy.health < Han_Thintuc("e", enemy) and ValidTarget(enemy, 250) then
+			CastSpell(_E, enemy)
+		end
+		if Menu.Misc.Ks.Ignite and enemy.health < getDmg("IGNITE", enemy, myHero) and ValidTarget(enemy, 600) then
+			CastSpell(IGNITE, enemy)
+		end
+	end
+end
+
+local lastSkin = nil
+function Menu()
+	Menu = scriptConfig("Han Irelia", "HanIrelia")
+	
+	Menu:addSubMenu("Orbwalker", "sow1")
+  sow:LoadToMenu(Menu.sow1) 
+	
+	Menu:addSubMenu("Q Settings", "QSet")
+	Menu.QSet:addSubMenu("Misc", "Misc")
+	Menu.QSet.Misc:addParam("Auto", "auto q killable minion", SCRIPT_PARAM_ONOFF, false)
+	Menu.QSet.Misc:addParam("Draw", "draw killable minion", SCRIPT_PARAM_ONOFF, true)
+	Menu.QSet:addParam("Buffer", "min range to cast q", SCRIPT_PARAM_SLICE, 350, 0, 650)
+	Menu.QSet:addParam("Use", "use q in combo", SCRIPT_PARAM_ONOFF, true)
+
+	Menu:addSubMenu("W Settings", "WSet")
+	Menu.WSet:addParam("Use", "use w in combo", SCRIPT_PARAM_ONOFF, true)
+
+	Menu:addSubMenu("E Settings", "ESet")
+	Menu.ESet:addParam("Smart", "use smart e", SCRIPT_PARAM_ONOFF, false)
+	Menu.ESet:addParam("Stun", "use stun only", SCRIPT_PARAM_ONOFF, true)
+
+	Menu:addSubMenu("R Settings", "RSet")
+	Menu.RSet:addParam("UseHp", "use auto ult", SCRIPT_PARAM_ONOFF, true)
+	Menu.RSet:addParam("Hp", "auto ult if targetHP <= x %", SCRIPT_PARAM_SLICE, 25, 1, 100)
+	Menu.RSet:addParam("UseHelper", "use ult helper", SCRIPT_PARAM_ONOFF, true)
+	Menu.RSet:addParam("Key", "ult helper key", SCRIPT_PARAM_ONKEYDOWN, false, 84)
+
+	Menu:addSubMenu("Other Options", "Misc")
+	Menu.Misc:addSubMenu("Draw", "Draw")
+	--Menu.Misc.Draw:addParam("Free", "lag-free circles", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Draw:addParam("Q", "draw q", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Draw:addParam("QBuffer", "draw q buffer", SCRIPT_PARAM_ONOFF, false)
+	Menu.Misc.Draw:addParam("E", "draw e", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Draw:addParam("R", "draw r", SCRIPT_PARAM_ONOFF, false)
+	Menu.Misc.Draw:addParam("Target", "draw target", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc:addSubMenu("Kill Steal", "Ks")
+	Menu.Misc.Ks:addParam("Q", "use q", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Ks:addParam("E", "use e", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Ks:addParam("Ignite", "use ignite", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc:addSubMenu("Items", "Item")
+	Menu.Misc.Item:addParam("Omen", "randuin's omen", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Hydra", "hydra", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Tiamat", "tiamat", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Ygb", "youmuu's ghostblade", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Bwc", "bilgewater cutlass", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("Botrk", "blade of the ruined king", SCRIPT_PARAM_ONOFF, true)
+	Menu.Misc.Item:addParam("SetBotrk1", "botrk/bwc if my HP <= %", SCRIPT_PARAM_SLICE, 20, 0, 100)
+	Menu.Misc.Item:addParam("SetBotrk2", "botrk/bwc if enemy HP >= %", SCRIPT_PARAM_SLICE, 60, 0, 100)
+	Menu.Misc:addSubMenu("Skin Changer", "Vip")
+	Menu.Misc.Vip:addParam("Skin", "skin changer", SCRIPT_PARAM_ONOFF, false)
+	Menu.Misc.Vip:addParam("Select", "select skin", SCRIPT_PARAM_SLICE, 5, 1, 5)
+	if Menu.Misc.Vip.Skin then
+		GenModelPacket("Irelia", Menu.Misc.Vip.Select)
+		lastSkin = Menu.Misc.Vip.Select
+	end 
+	
+	Menu:addParam("Magnet", "Use Magnet", SCRIPT_PARAM_ONOFF, true)
+ 	Menu:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 10, 150)
+  	Menu:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
+  	Menu:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
+end
+
+local skinFix = 0
+function Skin()
+	if Menu.Misc.Vip.Select ~= lastSkin and Menu.Misc.Vip.Skin then
+		GenModelPacket("Irelia", Menu.Misc.Vip.Select)
+		lastSkin = Menu.Misc.Vip.Select
+		skinFix = 1
+	end
+	if not Menu.Misc.Vip.Skin and skinFix > 0 then
+		GenModelPacket("Irelia", 5)
+		lastSkin = 5
+	end
+end
+
+-- Shalzut
+function GenModelPacket(champ, skinId)
+	p = CLoLPacket(0x97)
+	p:EncodeF(myHero.networkID)
+	p.pos = 1
+	t1 = p:Decode1()
+	t2 = p:Decode1()
+	t3 = p:Decode1()
+	t4 = p:Decode1()
+	p:Encode1(t1)
+	p:Encode1(t2)
+	p:Encode1(t3)
+	p:Encode1(bit32.band(t4,0xB))
+	p:Encode1(1)--hardcode 1 bitfield
+	p:Encode4(skinId)
+	for i = 1, #champ do
+	p:Encode1(string.byte(champ:sub(i,i)))
+	end
+	for i = #champ + 1, 64 do
+	p:Encode1(0)
+	end
+	p:Hide()
+	RecvPacket(p)
+end
+
+function round(num) 
+    if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
+end
+
+function DrawCircleNextLvl(x, y, z, radius, width, color, chordlength, han)
+    radius = radius or 300
+    quality = nil
+    if han then
+    	quality = 2*math.pi/5
+    else
+		quality = math.max(8,round(180/math.deg((math.asin((chordlength/(2*radius)))))))
+  		quality = 2 * math.pi / quality
+  	end
+  	radius = radius*.92
+    local points = {}
+    for theta = 0, 2 * math.pi + quality, quality do
+        local c = WorldToScreen(D3DXVECTOR3(x + radius * math.cos(theta), y, z - radius * math.sin(theta)))
+        points[#points + 1] = D3DXVECTOR2(c.x, c.y)
+    end
+    DrawLines2(points, width or 1, color or 4294967295)
+end
+
+function DrawCircle2(x, y, z, radius, color, han)
+    local vPos1 = Vector(x, y, z)
+    local vPos2 = Vector(cameraPos.x, cameraPos.y, cameraPos.z)
+    local tPos = vPos1 - (vPos1 - vPos2):normalized() * radius
+    local sPos = WorldToScreen(D3DXVECTOR3(tPos.x, tPos.y, tPos.z))
+    if OnScreen({ x = sPos.x, y = sPos.y }, { x = sPos.x, y = sPos.y }) then
+        DrawCircleNextLvl(x, y, z, radius, 1, color, 75, han) 
+    end
+end
+
+function OnDraw()
+	if Menu.Misc.Draw.Q then 
+		DrawCircle2(myHero.x, myHero.y, myHero.z, 650, ARGB(255, 255, 231, 6), false)
+	end
+	if Menu.Misc.Draw.E then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, 250, ARGB(255, 190, 190, 190), false)
+	end
+	if Menu.Misc.Draw.R then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, 1200, ARGB(255, 255, 231, 6), false)
+	end
+	if Menu.Misc.Draw.QBuffer then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, Menu.QSet.Buffer, ARGB(255, 255, 231, 6), false)
+	end
+	if Menu.QSet.Misc.Draw then
+		for i = 1, #minionindicator, 1 do
+			DrawCircle2(minionindicator[i].x, minionindicator[i].y, minionindicator[i].z, 80, ARGB(255, 255, 231, 6), true)
+		end
+	end
+end
+
+local dontrong = nil
+function OnGainBuff(unit, buff)
+	if unit.isMe and buff.name:find("Recall") ~= nil then
+		dontrong = Menu.RSet.Misc.Auto
+		Menu.RSet.Misc.Auto = false
+	end
+end
+
+function OnLoseBuff(unit, buff)
+	if unit.isMe and buff.name:find("Recall") ~= nil then
+		Menu.RSet.Misc.Auto = dontrong
+	end
+end
+
+function OnLoad()
+	ENEMY_MINION = minionManager(MINION_ENEMY, 1000, myHero, MINION_SORT_HEALTH_ASC)
+	ts = TargetSelector(TARGET_LESS_CAST, 325)
+    vp = VPrediction()    
+    sow = SOW(vp)
+	Menu()
+    sow:RegisterAfterAttackCallback(Han_After)
+    sow:RegisterOnAttackCallback(Han_On)
+    Han_Summoner()
+    DelayAction(function() PrintChat("<font color=\"#999999\">Han Irelia loaded succesfully. Version <font color=\"#FF0000\">"..version.."</font>.</font>") end , 3)
+end
+
+function Han_Tick()
+    hanq =  myHero:CanUseSpell(_Q) == READY
+    hanw =  myHero:CanUseSpell(_W) == READY
+    hane =  myHero:CanUseSpell(_E) == READY
+    hanr =  myHero:CanUseSpell(_R) == READY
+    hani = IGNITE and myHero:CanUseSpell(IGNITE) == READY or false
+end
+
+function OnTick()
+	if myHero.dead then return end
+	Han_Target()
+	Han_Magnet()
+	Han_Tick()
+	Han()
+	Skin()
+end
