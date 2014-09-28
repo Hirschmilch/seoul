@@ -421,6 +421,20 @@ function OnDraw()
 	end
 end
 
+local dontrong = nil
+function OnGainBuff(unit, buff)
+	dontrong = Menu.RSet.Misc.Auto
+	if buff.name:find("Recall") ~= nil then
+		Menu.RSet.Misc.Auto = false
+	end
+end
+
+function OnLoseBuff(unit, buff)
+	if buff.name:find("Recall") ~= nil then
+		Menu.RSet.Misc.Auto = dontrong
+	end
+end
+
 function OnLoad()
 	ENEMY_MINION = minionManager(MINION_ENEMY, 1000, myHero, MINION_SORT_HEALTH_ASC)
 	ts = TargetSelector(TARGET_LESS_CAST, 325)
