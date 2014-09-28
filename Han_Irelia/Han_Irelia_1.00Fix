@@ -424,7 +424,7 @@ end
 local dontrong = nil
 function OnGainBuff(unit, buff)
 	if unit.isMe and buff.name:find("Recall") ~= nil then
-		dontrong = Menu.RSet.Misc.Auto
+		dontrong = Menu.QSet.Misc.Auto
 		Menu.QSet.Misc.Auto = false
 	end
 end
