@@ -425,13 +425,13 @@ local dontrong = nil
 function OnGainBuff(unit, buff)
 	if unit.isMe and buff.name:find("Recall") ~= nil then
 		dontrong = Menu.RSet.Misc.Auto
-		Menu.RSet.Misc.Auto = false
+		Menu.QSet.Misc.Auto = false
 	end
 end
 
 function OnLoseBuff(unit, buff)
 	if unit.isMe and buff.name:find("Recall") ~= nil then
-		Menu.RSet.Misc.Auto = dontrong
+		Menu.QSet.Misc.Auto = dontrong
 	end
 end
 
