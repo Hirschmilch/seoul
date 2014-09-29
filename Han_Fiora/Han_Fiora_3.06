@@ -70,8 +70,7 @@ function Han_Magnet()
 end
 
 function Han_Botrk()
-    local health = myHero.health
-    if Menu.Key and seoul and GetDistanceSqr(seoul) < 202500 and ValidTarget(seoul, 450) and (health <= Menu.Misc.Item.SetBotrk1 or health >= Menu.Misc.Item.SetBotrk2) then
+    if Menu.Key and seoul and GetDistanceSqr(seoul) < 202500 and ValidTarget(seoul, 450) and (myHero.health <= (Menu.Misc.Item.SetBotrk1/100)*myHero.maxHealth or seoul.health >= (Menu.Misc.Item.SetBotrk2/100)*seoul.maxHealth) then
         if Menu.Misc.Item.Botrk and GetInventoryItemIsCastable(3153) then
                     CastItem(3153, seoul)
                 elseif Menu.Misc.Item.Bwc and GetInventorySlotItem(3144) then
