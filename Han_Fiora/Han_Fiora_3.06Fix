@@ -718,7 +718,10 @@ function OnLoad()
     sow:RegisterOnAttackCallback(Han_On)
     Menu()
     Han_Summoner()
+    DelayAction(function()
     PrintChat("<font color=\"#999999\">Han Fiora loaded succesfully. Version <font color=\"#FF0000\">"..version.."</font>.<font color=\"#FFA500\"> schabba</font> so cute</font>")
+		PrintChat("<font color=\"#999999\">Top Donator: no one qq</font>")
+		end, 2)
 end
 
 function Han_Tick()
