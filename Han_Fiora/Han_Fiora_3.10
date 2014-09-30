@@ -1,0 +1,799 @@
+if myHero.charName ~= "Fiora" or not VIP_USER then return end
+
+require 'VPrediction'
+require 'SOW'
+
+local version = 3.10
+local seoul, hanq, hanw, hanr, hani, first = nil, false, false, false, false, true
+local lastSkin = 4
+local seoultravel = nil
+local seoultime = false
+
+function OnGainBuff(unit, buff)
+	if unit.isMe and buff.name == "fioraqcd" then
+		seoultime = true
+	end
+end
+
+function OnLoseBuff(unit, buff)
+	if unit.isMe and buff.name == "fioraqcd" then
+		seoultime = false
+	end
+end
+
+function Han()
+    Han_Q()
+    Han_Botrk()
+    Han_Ult()
+end 
+
+local selectedTar = nil
+function Han_Target()
+    ts:update()
+    seoul = nil
+		seoultravel = math.huge
+    if selectedTar and Menu.Lock then
+        if selectedTar.dead or myHero.dead then
+            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Dead!</font>")
+            selectedTar = nil
+        elseif not ValidTarget(selectedTar, 1500) then
+            print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selectedTar.charName..". Too far away!</font>")
+            selectedTar = nil
+        else
+            seoul = selectedTar
+				end
+    elseif ValidTarget(ts.target) then
+        seoul = ts.target
+    end
+    if seoul then
+    	seoultravel = GetDistanceSqr(seoul)
+    	sow:ForceTarget(seoul)
+    end
+end
+
+function OnWndMsg(Msg, Key)
+    if Msg == WM_LBUTTONDOWN and Menu.Lock then
+        local minD = 200
+        local starget = nil
+        for i, enemy in ipairs(GetEnemyHeroes()) do
+            if ValidTarget(enemy) then
+                if GetDistance(enemy, mousePos) <= minD then
+                    starget = enemy
+                end
+            end
+        end     
+        if starget then
+            if selectedTar and starget.charName == selectedTar.charName then
+                selectedTar = nil
+                print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..".</font>")
+            else
+                selectedTar = starget               
+                print("<font color=\"#FFFFFF\">Fiora: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..".</font>")
+            end
+        end
+    end
+end
+-- bilbao end
+
+local mousex, mousey, targetx, targety = nil, nil, nil, nil
+function Han_Magnet()
+    if Menu.Key and seoul and Menu.Magnet and seoultravel < 16129 then
+        mousex, mousey, targetx, targety = mousePos.x, mousePos.z, seoul.x, seoul.z
+        local distance = (mousex-targetx)^2 + (mousey-targety)^2
+        if distance < Menu.MagnetRange^2 then
+            sow:OrbWalk(seoul, myHero)
+        end
+    end
+end
+
+function Han_Botrk()
+    if Menu.Key and seoul and seoultravel < 202500 and (myHero.health <= (Menu.Misc.Item.SetBotrk1/100)*myHero.maxHealth or seoul.health >= (Menu.Misc.Item.SetBotrk2/100)*seoul.maxHealth) then
+        if Menu.Misc.Item.Botrk then
+          	CastItem(3153, seoul)
+        elseif Menu.Misc.Item.Bwc then
+            CastItem(3144, seoul)
+        end
+    end
+end
+
+function Han_Q()
+    if Menu.Key and hanq and seoul and seoultravel >= (Menu.QSet.QBuffer)^2 and Menu.QSet.Q then
+        Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+    end
+end
+
+local hanguyeng = nil
+function Han_Guyeng()
+    if selectedTar and Menu.QSet.Helper then
+        hanguyeng = nil
+        enemy_minion = minionManager(MINION_ENEMY, 600, selectedTar, MINION_SORT_HEALTH_ASC)
+        enemy_minion:update()
+        local hanangle = 0
+        local hanmin = 360000
+        local hancheck = nil
+        for i, minion in pairs(enemy_minion.objects) do
+            local vtarget = Vector(selectedTar.x, selectedTar.y, selectedTar.z)
+            local vminion = Vector(minion.x, minion.y, minion.z)
+            local vhan = Vector(myHero.x, myHero.y, myHero.z)
+            local angle = vminion:angleBetween(vhan, vtarget)
+            local hantarget = GetDistanceSqr(selectedTar)
+            local hanminion = GetDistanceSqr(minion)
+            local miniontarget = GetDistanceSqr(selectedTar, minion)
+
+            if miniontarget < hanmin and angle > hanangle and miniontarget > 40000 and hanminion < hantarget then
+                hanmin = miniontarget
+                hanangle = angle
+                hanguyeng = minion
+                hancheck = miniontarget
+            end
+        end
+        if hanguyeng and hancheck >= 360000 then
+            hanguyeng = nil
+        end
+        if Menu.Key and first and hanguyeng and hanq and ValidTarget(hanguyeng, 600) then
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = hanguyeng.networkID}):send()
+            first = false
+            DelayAction(function()
+                first = true
+            end, 5)
+        end
+    end
+end
+
+function Han_Ult()
+    if Menu.RSet.Help and myHero:CanUseSpell(_R) == READY and seoul and seoultravel < 160000 then
+        Packet("S_CAST", {spellId = _R, targetNetworkId = seoul.networkID}):send()
+    end
+end
+
+function Han_After()
+     if Menu.Key and seoul and seoultravel < 225^2 and Menu.QSet.HAN then
+        if hane and myHero:GetSpellData(_Q).currentCd < 0.010  then 
+            Packet("S_CAST", {spellId = _E}):send()
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+            --DelayAction(function()
+               --   Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+          --  end, 0.010)
+        elseif hane and ((GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra) or (GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat)) then
+            Packet("S_CAST", {spellId = _E}):send()
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+            CastItem(3077)
+            end
+        elseif not hane and hanq then
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+                CastItem(3077)
+            end
+        elseif hane then 
+            Packet("S_CAST", {spellId = _E}):send()
+            if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+                CastItem(3074)
+            elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+                CastItem(3077)
+            end
+        elseif GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+            CastItem(3074)
+        elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+            CastItem(3077)
+        elseif hanq then
+            Packet("S_CAST", {spellId = _Q, targetNetworkId = seoul.networkID}):send()
+        end
+   elseif Menu.Key and seoul and seoultravel < 225^2 then
+        if hane then Packet("S_CAST", {spellId = _E}):send() end
+        if GetInventoryItemIsCastable(3074) and Menu.Misc.Item.Hydra then
+            CastItem(3074)
+        elseif GetInventoryItemIsCastable(3077) and Menu.Misc.Item.Tiamat then
+            CastItem(3077)
+        end
+    end
+end
+
+function Han_On()
+    if Menu.Key and Menu.Misc.Item.Ygb then
+        CastItem(3142)
+    end
+end
+
+local FLASH, IGNITE = nil, nil
+function Han_Summoner()
+    if myHero:GetSpellData(SUMMONER_1).name:find("summonerflash") then
+        FLASH = SUMMONER_1
+    elseif myHero:GetSpellData(SUMMONER_2).name:find("summonerflash") then
+        FLASH = SUMMONER_2
+    else
+        FLASH = nil
+    end
+    if myHero:GetSpellData(SUMMONER_1).name:find("summonerdot") then
+        IGNITE = SUMMONER_1
+    elseif myHero:GetSpellData(SUMMONER_2).name:find("summonerdot") then
+        IGNITE = SUMMONER_2
+    else
+        IGNITE = nil
+    end
+end
+
+function hanfiora(spell, object)
+	if spell == "q" then
+		local qdmg = (15+25*myHero:GetSpellData(_Q).level+(myHero.damage+myHero.addDamage)*0.6)*(100/(100+(object.armor*myHero.armorPenPercent-myHero.armorPen)))
+		return qdmg
+	elseif spell == "aa" then
+		local aadmg = (myHero.damage+myHero.addDamage)*(100/(100+(object.armor*myHero.armorPenPercent-myHero.armorPen)))
+		return aadmg
+	elseif spell == "ignite" then
+		local idmg = 50+20*myHero.level
+		return idmg
+	end
+end
+
+function Han_Kill()
+	if Menu.Misc.Ks.Q and Menu.Misc.Ks.Ignite and hanq and hani then
+	    for i, enemy in ipairs(GetEnemyHeroes()) do
+	    	if ValidTarget(enemy, 600) then
+	    		local qdmg = hanfiora("q", enemy)
+	    		local idmg = hanfiora("ignite", enemy)
+	    		if not seoultime and enemy.health < 2*qdmg then
+	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
+	    		elseif enemy.health < qdmg+idmg then
+	    			CastSpell(IGNITE, enemy)
+	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
+	    		elseif enemy.health < qdmg then
+	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
+	    		elseif enemy.health < idmg then
+	    			CastSpell(IGNITE, enemy)
+	    		end
+	    	end
+	    end
+	elseif (Menu.Misc.Ks.Q and hanq and not hani) or (Menu.Misc.Ks.Q and not Menu.Misc.Ks.Ignite and hanq) then
+		for i, enemy in ipairs(GetEnemyHeroes()) do
+	    	if ValidTarget(enemy, 600) then
+	    		local qdmg = hanfiora("q", enemy)
+	    		if not seoultime and enemy.health < 2*qdmg then
+	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
+	    		elseif enemy.health < qdmg then
+	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
+	    		end
+	    	end
+	    end
+	elseif (Menu.Misc.Ks.Ignite and hani and not hanq) or (Menu.Misc.Ks.Ignite and not Menu.Misc.Ks.Q and hani) then
+		for i, enemy in ipairs(GetEnemyHeroes()) do
+	    	if ValidTarget(enemy, 600) then
+	    		local idmg = hanfiora("ignite", enemy)
+	    		if enemy.health < idmg then
+	    			CastSpell(IGNITE, enemy)
+	    		end
+	    	end
+	    end
+	end  
+end
+
+function Han_Amumu(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) or GetDistance(unit) < 250 then
+        if GetDistance(unit) < 600 then
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target, 400) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+function Han_Annie(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) then
+        if GetDistance(spell.endPos) < 270 then 
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target, 400) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+local amyx, amyz, ashex, ashez, aspellx, aspellz = nil, nil, nil, nil, nil, nil
+function Han_Ashe(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) then
+        amyx, amyz, ashex, ashez, aspellx, aspellz = myHero.visionPos.x, myHero.visionPos.z, unit.visionPos.x, unit.visionPos.z, spell.endPos.x, spell.endPos.z
+        local distance = math.abs((amyz-ashez)*(ashex-aspellx)-(amyx-ashex)*(ashez-aspellz))/math.sqrt((amyx-ashex)*(amyx-ashex)+(amyz-ashez)*(amyz-ashez))
+        if distance < 102.5 and GetDistanceSqr(unit) < 1000000 then
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+function Han_Brand(unit, spell)
+    if GetDistance(spell.endPos) < 1 then
+        ts.range = 400
+        ts:update()
+        if ValidTarget(ts.target, 400) then
+            Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+        end
+        ts.range = 600
+        Han_Target()
+    end
+end
+
+function Han_Corki(unit, spell)
+	if GetDistanceSqr(unit) < 160000 then
+		Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+	end
+end
+
+function Han_Ezreal(unit, spell)
+	if GetDistanceSqr(unit) < 160000 then
+		Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+	end
+end
+
+function Han_Galio(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) or GetDistance(unit) < 250 then
+        if GetDistanceSqr(unit) < 360000 then
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target, 400) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+function Han_Gragas(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) then
+        if GetDistanceSqr(spell.endPos) < 140625 then 
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target, 400) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+function Han_Malphite(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) then
+        if GetDistance(spell.endPos) < 270 then
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target, 400) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+local smyx, smyz, sonax, sonaz, sspellx, sspellz = nil, nil, nil, nil, nil, nil
+function Han_Sona(unit, spell)
+    if ((Menu.RSet[unit.charName].Flash and not (FLASH and myHero:CanUseSpell(FLASH) == READY or false)) or not Menu.RSet[unit.charName].Flash) then
+        smyx, smyz, sonax, sonaz, sspellx, sspellz = myHero.visionPos.x, myHero.visionPos.z, unit.visionPos.x, unit.visionPos.z, spell.endPos.x, spell.endPos.z
+        local distance = math.abs((smyz-sonaz)*(sonax-sspellx)-(smyx-sonax)*(sonaz-sspellz))/math.sqrt((smyx-sonax)*(smyx-sonax)+(smyz-sonaz)*(smyz-sonaz))
+        if distance < 132.5 and (GetDistanceSqr(unit) < 1000000 and GetDistanceSqr(spell.endPos) < 1000000) then
+            ts.range = 400
+            ts:update()
+            if ValidTarget(ts.target) then
+                Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+            end
+            ts.range = 600
+            Han_Target()
+        end
+    end
+end
+
+function Han_Syndra(unit, spell)
+    if GetDistance(spell.endPos) < 1 then
+        ts.range = 400
+        ts:update()
+        if ValidTarget(ts.target, 400) then
+            Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+        end
+        ts.range = 600
+        Han_Target()
+    end
+end
+
+function Han_Tristana(unit, spell)
+    if GetDistanceSqr(spell.endPos) < 2500 then
+        ts.range = 400
+        ts:update()
+        if ValidTarget(ts.target, 400) then
+            Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+        end
+        ts.range = 600
+        Han_Target()
+    end
+end
+
+function Han_Darius(unit, spell)
+	if GetDistance(spell.endPos) < 1 then
+		ts.range = 400
+		ts:update()
+		if ValidTarget(ts.target, 400) then
+			Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+    end
+			ts.range = 600
+      Han_Target()
+	end
+end
+
+function Han_Garen(unit, spell)
+	if GetDistance(spell.endPos) < 1 then
+		ts.range = 400
+		ts:update()
+		if ValidTarget(ts.target, 400) then
+			Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+    end
+			ts.range = 600
+      Han_Target()
+	end
+end
+
+function Han_Lucian(unit, spell)
+	if GetDistanceSqr(unit) < 160000 then
+		Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+	end
+end
+
+function Han_Khazix(unit, spell)
+	if GetDistanceSqr(unit) < 160000 then
+		Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+	end
+end
+
+function Han_Veigar(unit, spell)
+    if GetDistance(spell.endPos) < 1 then 
+        ts.range = 400
+        ts:update()
+        if ValidTarget(ts.target, 400) then
+            Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+        end
+        ts.range = 600
+        Han_Target()
+    end
+end
+
+function Han_Vi(unit, spell)
+    if GetDistance(spell.endPos) < 1 then
+        ts.range = 400
+        ts:update()
+        if ValidTarget(ts.target, 400) then
+            Packet("S_CAST", {spellId = _R, targetNetworkId = ts.target.networkID}):send()
+        end
+        ts.range = 600
+        Han_Target()
+    end
+end
+
+-- Data from VPrediction
+local projectilespeed = {["Velkoz"]= 2000,["Xerath"] = 2000.0000,["Ziggs"] = 1500.0000,["KogMaw"] = 1800.0000,["Ashe"] = 2000.0000 ,["Soraka"] = 1000.0000 ,["Jinx"] = 2750.0000,["Ahri"] = 1750.0000 ,["Lulu"] = 1450.0000,["Lissandra"] = 2000.0000,["Draven"] = 1700.0000 ,["FiddleSticks"] = 1750.0000 ,["Sivir"] = 1750.0000 ,["Corki"] = 2000.0000 ,["Janna"] = 1200.0000,["Sona"] = 1500.0000,["Caitlyn"] = 2500.0000,["Anivia"] = 1400.0000,["Heimerdinger"] = 1500.0000 ,["Leblanc"] = 1700.0000 ,["Viktor"] = 2300.0000 ,["Orianna"] = 1450.0000 ,["Vladimir"] = 1400.0000 ,["Nidalee"] = 1750.0000 ,["Syndra"] = 1800.0000 ,["Veigar"] = 1100.0000 ,["Twitch"] = 2500.0000 ,["Urgot"] = 1300.0000 ,["Karma"] = 1500.0000 ,["TwistedFate"] = 1500.0000 ,["Varus"] = 2000.0000,["Swain"] = 1600.0000 ,["Vayne"] = 2000.0000,["Quinn"] = 2000.0000,["Brand"] = 2000.0000 ,["Teemo"] = 1300.0000 ,["Annie"] = 1200.0000,["Elise"] = 1600.0000 ,["Nami"] = 1500.0000,["Tristana"] = 2250.0000 ,["Graves"] = 3000.0000 ,["Morgana"] = 1600.0000,["MissFortune"] = 2000.0000,["Cassiopeia"] = 1200.0000,["Lucian"] = 2800.0000,["Kennen"] = 1600.0000 ,["Ryze"] = 2400.0000,["Lux"] = 1600.0000 ,["Ezreal"] = 2000.0000,["Zyra"] = 1700.0000 ,["Karthus"] = 1200.0000 ,["Zilean"] = 1200.0000,["Malzahar"] = 2000.0000}
+local wlist = {["Renekton"] = "RenektonExecute",["MissFortune"] = "MissFortuneRicochetShot",["Leona"] = "LeonaShieldOfDaybreakAttack",["Garen"] = "GarenSlash2",["Nasus"] = "NasusQAttack",["Shyvana"] = "ShyvanaDoubleAttackHit",["Darius"] = "DariusNoxianTacticsONHAttack",["Gangplank"] = "Parley",["Sivir"] = "RicochetAttack",["Talon"] = "TalonNoxianDiplomacyAttack",["Jax"] = "jaxrelentlessattack"}
+local rlist = {["Amumu"] = "CurseoftheSadMummy",["Annie"] = "InfernalGuardian",["Ashe"] = "EnchantedCrystalArrow",["Corki"]="CarpetBomb",["Lucian"]="LucianE",["Darius"]="DariusExecute", ["Garen"]="GarenR",["Ezreal"]="EzrealArcaneShift",["Galio"] = "GalioIdolOfDurand",["Gragas"] = "GragasR",["Sona"] = "SonaR",["Syndra"] = "syndrar",["Tristana"] = "BusterShot",["Malphite"] = "UFSlash",["Veigar"] = "VeigarPrimordialBurst",["Vi"] = "ViR"}
+local current = nil
+local shanghai = nil
+local koreanwind = nil
+local cancelled = false
+local percent = 0.9
+local melee = false
+
+ActiveAttacks = {}
+Han_Pre = {}
+local safecall = true
+function Han_W(unit, spell)
+    if safecall then
+        local hotan = GetDistance(spell.endPos)
+        local janga = GetDistance(unit)
+        if hotan < 50 and not unit.isMe then
+            if projectilespeed[unit.charName] ~= nil and (spell.name:find("Attack") ~= nil) and hotan < 1 and unit.team ~= myHero.team and unit.type == myHero.type and Menu.WSet[unit.charName].Basic and Menu.WSet[unit.charName].Smart then
+                safecall = false
+                cancelled = false
+                shanghai = GetTickCount()-GetLatency()
+                koreanwind =  (1/ (unit.attackSpeed*(1 / (spell.windUpTime * unit.attackSpeed))))* 1000
+                local delay = koreanwind + (janga/(projectilespeed[unit.charName]/1000))*percent
+                current = unit
+                local wCalc = {castTime = (shanghai+delay)-GetLatency()}
+                table.insert(Han_Pre, wCalc)
+                table.insert(ActiveAttacks, unit.networkID)
+            elseif hanw and (spell.name:find("Attack") ~= nil) and hotan < 1 and unit.team ~= myHero.team and unit.type == myHero.type and Menu.WSet[unit.charName].Basic and Menu.WSet[unit.charName].Smart then
+                melee = true
+                safecall = false
+                cancelled = false
+                shanghai = GetTickCount()-GetLatency()
+                koreanwind =  (1/ (unit.attackSpeed*(1 / (spell.windUpTime * unit.attackSpeed))))* 1000
+                local wCalc = {castTime = (shanghai+koreanwind)-GetLatency()-100}
+                table.insert(Han_Pre, wCalc)
+                table.insert(ActiveAttacks, unit.networkID)
+            elseif hanw and unit.team ~= myHero.team and unit.type == myHero.type and (((spell.name:find("Attack") ~= nil) and GetDistance(spell.endPos) < 1 and Menu.WSet[unit.charName].Basic) or (Menu.WSet[unit.charName].Spell and wlist[unit.charName] ~= nil and (spell.name:find(wlist[unit.charName]) ~= nil))) then
+                Packet("S_CAST", {spellId = _W}):send()
+            end
+        end
+    end
+end
+
+function OnRecvPacket(p)
+    if not safecall then
+        if p.header == 0x34 then
+            p.pos = 1
+            if ActiveAttacks[1] == p:DecodeF() then
+                p.pos = 9
+                if p:Decode1() == 0x11 then
+                    ResetW(false)
+                end
+            end
+        end
+   end
+end
+  
+function Han_WTick()
+    for i, wCalc in ipairs(Han_Pre) do
+        if not melee then 
+            wCalc.castTime = shanghai + koreanwind + ((((GetDistance(current)/(projectilespeed[current.charName]/1000))*percent))-GetLatency()) 
+        end
+        if GetTickCount() >= wCalc.castTime and not cancelled then
+            ResetW(true)
+        end
+    end
+end
+
+function ResetW(trong)
+    if hanw and trong then Packet("S_CAST", {spellId = _W}):send() end
+    table.remove(ActiveAttacks, 1)
+    table.remove(Han_Pre, 1)
+    cancelled = true
+    current = nil
+    shanghai = nil
+    koreanwind = nil
+    melee = false
+    safecall = true
+end
+
+function Han_R(unit, spell)
+    if hanr and not unit.isMe and unit.type == myHero.type and unit.team ~= myHero.team and rlist[unit.charName] ~= nil and (spell.name:find(rlist[unit.charName]) ~= nil) and Menu.RSet[unit.charName][spell.name] and GetDistance(spell.endPos) < 1400 then
+        _ENV["Han_"..unit.charName](unit, spell)
+		elseif hanr and unit.type == myHero.type and unit.team ~= myHero.team and unit.charName == "Tristana" and spell.name == "RocketJump" and Menu.RSet[unit.charName][spell.name] and GetDistance(unit) < 400 then
+			Packet("S_CAST", {spellId = _R, targetNetworkId = unit.networkID}):send()
+		end
+end
+
+function OnProcessSpell(unit, spell)
+    Han_W(unit, spell)
+    Han_R(unit, spell)
+end
+
+function Menu()
+    Menu = scriptConfig("Han Fiora", "HanFiora")
+
+    Menu:addSubMenu("Orbwalker", "sow1")
+    sow:LoadToMenu(Menu.sow1) 
+    
+    Menu:addSubMenu("Target Selector", "Ts")
+    Menu.Ts:addTS(ts)
+    ts.name = "Focus"
+        
+    Menu:addSubMenu("Q Settings", "QSet")
+    Menu.QSet:addParam("Helper", "gapclose helper", SCRIPT_PARAM_ONOFF, false)
+    Menu.QSet:addParam("QBuffer", "min range to cast q", SCRIPT_PARAM_SLICE, 325, 0, 600, 0)
+    Menu.QSet:addParam("Q", "use q buffer", SCRIPT_PARAM_ONOFF, true)
+    Menu.QSet:addParam("HAN", "use q for fancy combo", SCRIPT_PARAM_ONOFF, false)
+    Menu:addSubMenu("W Settings", "WSet")
+        
+    local aaPredict = false
+    for i, enemy in ipairs(GetEnemyHeroes()) do
+                Menu.WSet:addSubMenu(enemy.charName, enemy.charName)
+                Menu.WSet[enemy.charName]:addParam("Basic", "basic attack", SCRIPT_PARAM_ONOFF, true)
+                if wlist[enemy.charName] ~= nil then
+                    Menu.WSet[enemy.charName]:addParam("Spell", wlist[enemy.charName], SCRIPT_PARAM_ONOFF, true)
+                end
+                Menu.WSet[enemy.charName]:addParam("Smart", "use smart w", SCRIPT_PARAM_ONOFF, true)
+        aaPredict = true
+    end
+    if not aaPredict then
+        Menu.WSet:addParam("aaNotSupported","y u alone here :o", SCRIPT_PARAM_INFO, "")
+    end
+        
+    Menu:addSubMenu("E Settings", "ESet")
+    Menu.ESet:addParam("E", "use e as reset", SCRIPT_PARAM_ONOFF, true)
+    Menu:addSubMenu("R Settings", "RSet")
+    local phatnguyen = {["Amumu"] = {name = "Amumu R", flash = true, default = true},["Annie"] = {name = "Annie R", flash = true, default = true},["Ashe"] = {name = "Ashe R", flash = true, default = true},["Corki"]={name = "Corki W", flash = false, default = false},["Darius"]={name = "Darius R", flash = false, default = false}, ["Garen"]={name = "Garen R", flash = false, default = false},["Khazix"]={name = "Khazix E", flash = false, default = false},["Ezreal"] = {name = "Ezreal E", flash = false, default = false},["Galio"] = {name = "Galio R", flash = true, default = true},["Gragas"] = {name = "Gragas R", flash = true, default = true},["Lucian"]={name = "Lucian E", flash = false, default = false},["Sona"] = {name = "Sona R", flash = true, default = true},["Syndra"] = {name = "Syndra R", flash = false, default = true},["Tristana"] = {name = "Tristana R", flash = false, default = true},["Malphite"] = {name = "Malphite R", flash = true, default = true},["Veigar"] = {name = "Veigar R", flash = false, default = true},["Vi"] = {name = "Vi R", flash = false, default = true}}
+    local rPredict = false
+    for champ, spell in pairs(rlist) do
+        for i, enemy in ipairs(GetEnemyHeroes()) do
+            if enemy.charName == champ then
+                Menu.RSet:addSubMenu(enemy.charName, enemy.charName)
+                Menu.RSet[enemy.charName]:addParam(spell, phatnguyen[enemy.charName].name, SCRIPT_PARAM_ONOFF, phatnguyen[enemy.charName].default)
+								if enemy.charName == "Tristana" then
+									Menu.RSet[enemy.charName]:addParam("RocketJump", "Tristana W", SCRIPT_PARAM_ONOFF, false)
+								end
+                if phatnguyen[enemy.charName].flash then
+                    Menu.RSet[enemy.charName]:addParam("Flash", "prefer flash over ult", SCRIPT_PARAM_ONOFF, false)
+                end
+                rPredict = true
+            end
+        end
+    end
+    if not rPredict then
+        Menu.RSet:addParam("rNotSupported","No dodgable spells in current game", SCRIPT_PARAM_INFO, "")
+    end
+
+    Menu.RSet:addParam("UseHelp", "use ult helper", SCRIPT_PARAM_ONOFF, true)
+    Menu.RSet:addParam("Help", "ult helper key", SCRIPT_PARAM_ONKEYDOWN, false, 82)
+
+    Menu:addSubMenu("Other Options", "Misc")
+    Menu.Misc:addSubMenu("Draw", "Draw")
+    Menu.Misc.Draw:addParam("Free", "lag-free circles", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Draw:addParam("Q", "draw q", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Draw:addParam("QBuffer", "draw q buffer", SCRIPT_PARAM_ONOFF, false)
+    Menu.Misc.Draw:addParam("R", "draw r", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Draw:addParam("Target", "draw target", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc:addSubMenu("Kill Steal", "Ks")
+    Menu.Misc.Ks:addParam("Q", "use q", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Ks:addParam("W", "use w", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Ks:addParam("Ignite", "use ignite", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc:addSubMenu("Items", "Item")
+    Menu.Misc.Item:addParam("Hydra", "hydra", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Item:addParam("Tiamat", "tiamat", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Item:addParam("Ygb", "youmuu's ghostblade", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Item:addParam("Bwc", "bilgewater cutlass", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Item:addParam("Botrk", "blade of the ruined king", SCRIPT_PARAM_ONOFF, true)
+    Menu.Misc.Item:addParam("SetBotrk1", "botrk/bwc if my HP <= %", SCRIPT_PARAM_SLICE, 20, 0, 100)
+    Menu.Misc.Item:addParam("SetBotrk2", "botrk/bwc if enemy HP >= %", SCRIPT_PARAM_SLICE, 60, 0, 100)
+
+    Menu.Misc:addSubMenu("Skin Changer", "Vip")
+    Menu.Misc.Vip:addParam("Skin", "skin changer", SCRIPT_PARAM_ONOFF, false)
+    Menu.Misc.Vip:addParam("Select", "select skin", SCRIPT_PARAM_SLICE, 4, 1, 4)
+    if Menu.Misc.Vip.Skin then
+        GenModelPacket("Fiora", Menu.Misc.Vip.Select)
+        lastSkin = Menu.Misc.Vip.Select
+    end       
+    Menu:addParam("Magnet", "Use Magnet", SCRIPT_PARAM_ONOFF, true)
+    Menu:addParam("MagnetRange", "Magnet Radius",SCRIPT_PARAM_SLICE, 75, 10, 150)
+    Menu:addParam("Lock", "Focus left clicked target", SCRIPT_PARAM_ONOFF, true)
+    Menu:addParam("Key", "Combo Key", SCRIPT_PARAM_ONKEYDOWN, false, 32)
+end
+
+local skinFix = 0
+function Skin()
+    if Menu.Misc.Vip.Select ~= lastSkin and Menu.Misc.Vip.Skin then
+        GenModelPacket("Fiora", Menu.Misc.Vip.Select)
+        lastSkin = Menu.Misc.Vip.Select
+        skinFix = 1
+    end
+    if not Menu.Misc.Vip.Skin and skinFix > 0 then
+        GenModelPacket("Fiora", 4)
+        lastSkin = 4
+    end
+end
+
+-- Shalzut
+function GenModelPacket(champ, skinId)
+    p = CLoLPacket(0x97)
+    p:EncodeF(myHero.networkID)
+    p.pos = 1
+    t1 = p:Decode1()
+    t2 = p:Decode1()
+    t3 = p:Decode1()
+    t4 = p:Decode1()
+    p:Encode1(t1)
+    p:Encode1(t2)
+    p:Encode1(t3)
+    p:Encode1(bit32.band(t4,0xB))
+    p:Encode1(1)--hardcode 1 bitfield
+    p:Encode4(skinId)
+    for i = 1, #champ do
+        p:Encode1(string.byte(champ:sub(i,i)))
+    end
+    for i = #champ + 1, 64 do
+        p:Encode1(0)
+    end
+    p:Hide()
+    RecvPacket(p)
+end
+
+function round(num) 
+    if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
+end
+
+function DrawCircleNextLvl(x, y, z, radius, width, color, chordlength)
+    radius = radius or 300
+  quality = math.max(8,round(180/math.deg((math.asin((chordlength/(2*radius)))))))
+  quality = 2 * math.pi / quality
+  radius = radius*.92
+    local points = {}
+    for theta = 0, 2 * math.pi + quality, quality do
+        local c = WorldToScreen(D3DXVECTOR3(x + radius * math.cos(theta), y, z - radius * math.sin(theta)))
+        points[#points + 1] = D3DXVECTOR2(c.x, c.y)
+    end
+    DrawLines2(points, width or 1, color or 4294967295)
+end
+
+function DrawCircle2(x, y, z, radius, color)
+    local vPos1 = Vector(x, y, z)
+    local vPos2 = Vector(cameraPos.x, cameraPos.y, cameraPos.z)
+    local tPos = vPos1 - (vPos1 - vPos2):normalized() * radius
+    local sPos = WorldToScreen(D3DXVECTOR3(tPos.x, tPos.y, tPos.z))
+    if OnScreen({ x = sPos.x, y = sPos.y }, { x = sPos.x, y = sPos.y }) then
+        DrawCircleNextLvl(x, y, z, radius, 1, color, 75) 
+    end
+end
+
+function OnDraw()
+    if Menu.Misc.Draw.Q then
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, 600, ARGB(255, 255, 231, 6))
+      else
+                DrawCircle(myHero.x, myHero.y, myHero.z, 600, 0xcfe709)
+            end
+    end
+        if Menu.Misc.Draw.QBuffer then
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, ARGB(255, 0, 51, 51))
+            else
+                DrawCircle(myHero.x, myHero.y, myHero.z, Menu.QSet.QBuffer, 0x003333)
+            end
+        end
+    if Menu.Misc.Draw.R then
+            if Menu.Misc.Draw.Free then
+                DrawCircle2(myHero.x, myHero.y, myHero.z, 400, ARGB(255, 190, 190, 190))
+            else
+                DrawCircle(myHero.x, myHero.y, myHero.z, 400, 0x111111)
+            end
+    end
+    if Menu.Misc.Draw.Target and seoul then
+        DrawCircle2(seoul.x, seoul.y, seoul.z, 100, ARGB(255, 255, 0, 0))
+    end
+    Han_Guyeng()
+    if hanguyeng then
+        DrawCircle2(hanguyeng.x, hanguyeng.y, hanguyeng.z, 100, ARGB(255, 0, 255, 0))
+    end
+end
+
+
+function OnLoad()
+    ts = TargetSelector(TARGET_LESS_CAST, 600)
+    vp = VPrediction()    
+    sow = SOW(vp)
+    sow:RegisterAfterAttackCallback(Han_After)
+    sow:RegisterOnAttackCallback(Han_On)
+    Menu()
+    Han_Summoner()
+  	DelayAction(function()
+    	PrintChat("<font color=\"#999999\">Han Fiora loaded succesfully. Version <font color=\"#FF0000\">"..version.."</font>.<font color=\"#FFA500\"> schabba</font> so cute</font>")
+		PrintChat("<font color=\"#999999\">Top Donator: no one qq</font>")
+	end, 2)
+end
+
+function Han_Tick()
+    hanq =  myHero:CanUseSpell(_Q) == READY
+    hanw =  myHero:CanUseSpell(_W) == READY
+    hane =  myHero:CanUseSpell(_E) == READY
+    hanr =  myHero:CanUseSpell(_R) == READY
+    hani = IGNITE and myHero:CanUseSpell(IGNITE) == READY or false
+end
+
+function OnTick()
+    if myHero.dead then return end
+    Han_Target()
+    Han_Magnet()
+    Han_WTick()
+    Han_Tick()
+    Han()  
+    Han_Kill()
+    Skin()
+end
