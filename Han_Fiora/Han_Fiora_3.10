@@ -235,7 +235,7 @@ function Han_Kill()
 	    	if ValidTarget(enemy, 600) then
 	    		local qdmg = hanfiora("q", enemy)
 	    		local idmg = hanfiora("ignite", enemy)
-	    		if not seoultime and enemy.health < 2*qdmg then
+	    		if not seoultime and hanq and enemy.health < 2*qdmg then
 	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
 	    		elseif enemy.health < qdmg+idmg then
 	    			CastSpell(IGNITE, enemy)
@@ -251,7 +251,7 @@ function Han_Kill()
 		for i, enemy in ipairs(GetEnemyHeroes()) do
 	    	if ValidTarget(enemy, 600) then
 	    		local qdmg = hanfiora("q", enemy)
-	    		if not seoultime and enemy.health < 2*qdmg then
+	    		if not seoultime and hanq and enemy.health < 2*qdmg then
 	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
 	    		elseif enemy.health < qdmg then
 	    			Packet("S_CAST", {spellId = _Q, targetNetworkId = enemy.networkID}):send()
