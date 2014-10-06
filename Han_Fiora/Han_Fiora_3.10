@@ -53,25 +53,24 @@ end
 
 function OnWndMsg(Msg, Key)
     if Msg == WM_LBUTTONDOWN and Menu.Lock then
-        local minD = 200
-        local starget = nil
+        local radius = 200
+        local current = nil
         for i, enemy in ipairs(GetEnemyHeroes()) do
             if ValidTarget(enemy) then
-                if GetDistance(enemy, mousePos) <= minD then
-                    starget = enemy
+                if GetDistanceSqr(enemy, mousePos) <= radius*radius then
+                    current = enemy
                 end
             end
         end     
-        if selectedTar and starget.charName == selectedTar.charName then
-                selectedTar = nil
-                print("<font color=\"#FFFFFF\">Fiora: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..".</font>")
-        elseif starget then
-                selectedTar = starget               
-                print("<font color=\"#FFFFFF\">Fiora: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..".</font>")
+        if selectedTar and current.charName == selectedTar.charName then
+            selectedTar = nil
+            print("<font color=\"#FFFFFF\">Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..current.charName..".</font>")
+        elseif current then
+            selectedTar = current               
+            print("<font color=\"#FFFFFF\">New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..current.charName..".</font>")
         end
     end
 end
--- bilbao end
 
 local mousex, mousey, targetx, targety = nil, nil, nil, nil
 function Han_Magnet()
