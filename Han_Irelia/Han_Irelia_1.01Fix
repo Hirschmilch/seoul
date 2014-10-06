@@ -27,23 +27,21 @@ end
 
 function OnWndMsg(Msg, Key)
     if Msg == WM_LBUTTONDOWN and Menu.Lock then
-        local minD = 200
-        local starget = nil
+        local radius = 200
+        local current = nil
         for i, enemy in ipairs(GetEnemyHeroes()) do
             if ValidTarget(enemy) then
-                if GetDistance(enemy, mousePos) <= minD then
-                    starget = enemy
+                if GetDistanceSqr(enemy, mousePos) <= radius*radius then
+                    current = enemy
                 end
             end
-        end     
-        if starget then
-            if selectedTar and starget.charName == selectedTar.charName then
-                selectedTar = nil
-                print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..starget.charName..".</font>")
-            else
-                selectedTar = starget               
-                print("<font color=\"#FFFFFF\">Irelia: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..starget.charName..".</font>")
-            end
+        end
+        if selectedTar and (not current or current.charName == selected.charName) then
+            print("<font color=\"#FFFFFF\">Irelia: Target <font color=\"#FF0000\"><b>UNSELECTED</b></font>: "..selected.charName..".</font>")
+            selectedTar = nil
+        elseif current then
+            selectedTar = current
+            print("<font color=\"#FFFFFF\">Irelia: New target <font color=\"#00FF00\"><b>SELECTED</b></font>: "..current.charName..".</font>")
         end
     end
 end
