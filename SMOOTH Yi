@@ -1,5 +1,5 @@
 -------------------------------
--- SMOOTH YI
+-- HAN YI
 -- AUTHOR: HIRSCHMILCH
 -------------------------------
 
@@ -274,7 +274,7 @@ Callback.Bind('Load', function()
 		Callback.Bind('WndMsg', function(msg, key) OnWndMsg(msg, key) end)
 		Callback.Bind('ProcessSpell', function(unit, spell) OnProcessSpell(unit, spell) end)
 		Allclass.DelayAction(function()
-	    	Game.Chat.Print('<font color=\'#FFA500\'>SMOOTH Yi'..'<font color=\'#99999\'> loaded successfully.')
+	    		Game.Chat.Print('Han Yi Loaded')
 		end, 2000)
 	end)
 end)
@@ -293,7 +293,7 @@ function InitGame()
 end
 
 function Menu()
-	Menu = MenuConfig('Smooth Yi')
+	Menu = MenuConfig('Han Yi')
 	Menu:Icon('fa-empire')
 
 	Menu:Menu('Combo', 'Main Settings')
@@ -308,8 +308,8 @@ function Menu()
 	Menu.Combo:Boolean('R', 'Use R if x targets are in y range', true)
 	Menu.Combo:Slider('RCount', 'x', 2, 0, 5 )
 	Menu.Combo:Slider('RRange', 'y', 750, 0, 2000)
-	Menu.Combo:Section('Binding', 'SMOOTH')
-	Menu.Combo:KeyBinding('Key', 'SMOOTH Key', 'SPACE')
+	Menu.Combo:Section('Binding', 'KOREA')
+	Menu.Combo:KeyBinding('Key', 'Combo Key', 'SPACE')
 	
 	Menu:Menu('TS','Target Selector')
 	Menu.TS:Icon('fa-bullseye')
