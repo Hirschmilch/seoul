@@ -1,5 +1,5 @@
 -------------------------------
--- SMOOTH FIORA
+-- HAN FIORA
 -- AUTHOR: HIRSCHMILCH
 -------------------------------
 
@@ -425,7 +425,7 @@ function InitGame()
 end
 
 function Menu()
-	Menu = MenuConfig('Smooth Fiora')
+	Menu = MenuConfig('Han Fiora')
 	Menu:Icon('fa-empire')
 
 	Menu:Menu('Combo', 'Main Settings')
@@ -444,8 +444,8 @@ function Menu()
 	Menu.Combo:Boolean('Dodge', 'Dodge dangerous spells', true)
 	Menu.Combo:Boolean('R', 'Use R Helper', true)
 	Menu.Combo:KeyBinding('Helper', 'R Helper', 'R')
-	Menu.Combo:Section('Binding', 'Korean')
-	Menu.Combo:KeyBinding('Key', 'God Key', 'SPACE')
+	Menu.Combo:Section('Binding', 'KOREA')
+	Menu.Combo:KeyBinding('Key', 'Combo Key', 'SPACE')
 	
 	Menu:Menu('TS','Target Selector')
 	Menu.TS:Icon('fa-bullseye')
