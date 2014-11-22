@@ -255,7 +255,6 @@ end
 
 function OnTickCheck()
 	qReady = myHero:CanUseSpell(0) == Game.SpellState.READY
-  	wReady = myHero:CanUseSpell(1) == Game.SpellState.READY
   	eReady = myHero:CanUseSpell(2) == Game.SpellState.READY
   	rReady = myHero:CanUseSpell(3) == Game.SpellState.READY
   	UpdateTargets()
