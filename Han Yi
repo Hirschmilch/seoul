@@ -32,7 +32,7 @@ end
 
 local selected = nil
 function UpdateTargets()
-	target.aa, target.q, target.botrk = nil, nil, nil, nil
+	target.aa, target.q, target.botrk = nil, nil, nil
 	if selected then
 	    if Allclass.ValidTarget(selected) then
     	    local dist = myHero.pos:DistanceTo(selected.pos)
