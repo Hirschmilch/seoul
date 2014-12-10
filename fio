@@ -1,0 +1,505 @@
+-------------------------------
+-- HAN FIORA
+-- AUTHOR: HIRSCHMILCH
+-------------------------------
+
+local target = {aa = nil, q = nil, r = nil, botrk = nil}
+local qReady, wReady, eReady, rReady = false, false, false, false
+local last, windup, animation = 0, 3, 0.65
+local enemyHeroes, projectileSpeed, parry, targeted, aoe = {}, {}, {}, {}, {}
+
+function VectorPos(v1, v2, range)
+	local v3 = Geometry.Vector3(v1.x, v1.y, v1.z)
+    local v4 = Geometry.Vector3(v2.x, v2.y, v2.z)
+    local v5 = (v3 - v4):Normalize() * range
+    local p1 = v3 + v5
+    local p2 = v3 - v5
+    if v4:DistanceTo(p1) < v4:DistanceTo(p2) then
+    	return p1
+    else
+    	return p2
+    end
+end
+
+function ItemSlot(id)
+    for i = 4, 9, 1 do
+        if myHero:GetItem(i) and myHero:GetItem(i).id == id then
+            return i
+        end
+    end
+end
+
+function CastItem(id, var1, var2)
+    local slot = ItemSlot(id)
+    if slot == nil then return end
+    if (myHero:CanUseSpell(slot) == Game.SpellState.READY) then
+        if (var2 ~= nil) then
+            myHero:CastSpell(slot, var1, var2)
+        elseif (var1 ~= nil) then
+            myHero:CastSpell(slot, var1)
+        else
+            myHero:CastSpell(slot)
+        end
+    end
+end
+
+local selected = nil
+function UpdateTargets()
+	target.aa, target.q, target.r, target.botrk = nil, nil, nil, nil
+	if selected then
+	    if Allclass.ValidTarget(selected) then
+    	    local dist = myHero.pos:DistanceTo(selected.pos)
+    	    if qReady and dist < 600 then
+    	        target.q = selected
+    	    end
+    	    if dist < 450 then
+    	        target.botrk = selected
+    	    end
+    	    if rReady and dist < 400 then
+        		target.r = selected
+        	end
+        	if dist < MyRange(selected) then
+        		target.aa = selected
+        	end
+		else
+			Game.Chat.Print('<font color=\'#FFFFFF\'>Fiora: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+			selected = nil
+		end
+	end
+	if not selected then
+		if Menu.TS.Mode:Value() == 1 then
+			local p, q, s, t = 0, 0, 0, 0
+			for i = 1, #enemyHeroes do
+				local player = enemyHeroes[i]
+				if Allclass.ValidTarget(player) then
+	    			local dist = myHero.pos:DistanceTo(player.pos)
+	        		local ratio = myHero.totalDamage / player.armor / player.health
+	        		if qReady and dist < 600 and ratio > q then
+	        			target.q, q = player, ratio
+	        		end
+	        		if dist < 450 and ratio > t then
+	        			target.botrk, t = player, ratio
+	        		end
+	        		if rReady and dist < 400 and ratio > s then
+	        			target.r, s = player, ratio
+	        		end
+	        		if dist <  MyRange(player) and ratio > p then
+	        			target.aa, p = player, ratio
+	        		end
+	        	end
+			end
+		elseif Menu.TS.Mode:Value() == 2 then
+			local p, q, s, t = 10000, 10000, 10000, 10000
+			for i = 1, #enemyHeroes do
+				local player = enemyHeroes[i]
+				if Allclass.ValidTarget(player) then
+	    			local dist = myHero.pos:DistanceTo(player.pos)
+	        		local health = player.health
+	        		if qReady and dist < 600 and health < q then
+	        			target.q, q = player, health
+	        		end
+	        		if dist < 450 and health < t then
+	        			target.botrk, t = player, health
+	        		end
+	        		if rReady and dist < 400 and health < s then
+	        			target.r, s = player, health
+	        		end
+	        		if dist < MyRange(player) and health < p then
+	        			target.aa, p = player, health
+	        		end
+	        	end
+	        end
+		end
+	end
+end
+
+function OnWndMsg(msg, key)
+	if msg == 514 and Menu.TS.Selected:Value() then
+		local radius = 200
+		local current = nil
+		for i = 1, #enemyHeroes do
+			local player = enemyHeroes[i]
+			if Allclass.ValidTarget(player) and mousePos:DistanceTo(player.pos) <= radius then
+				current = player
+			end
+		end
+	    if selected and (not current or current.charName == selected.charName) then
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Fiora: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+		    selected = nil
+	    elseif current and not selected then
+		    selected = current
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Fiora: New target <font color=\'#00FF00\'><b>SELECTED</b></font>: '..selected.charName..'.</font>')
+		end
+	end
+end
+
+function Botrk()
+	if target.botrk then
+		CastItem(3153, target.botrk)
+		CastItem(3144, target.botrk)
+	end
+end
+
+function CastQ()
+	if Menu.Combo.Q:Value() and target.q and myHero.pos:DistanceTo(target.q.pos) > Menu.Combo.Buffer:Value() then
+		myHero:CastSpell(0, target.q)
+	end
+end
+
+function CastR()
+	if target.r then
+		myHero:CastSpell(3, target.r)
+	end
+end
+
+function IsAttack(unit, spell)
+ 	return spell.name:lower():find('attack') ~= nil and spell.name:lower():find('monkeykingdoubleattack') == nil and Menu.Combo.Basic[unit.charName]:Value()
+end
+
+function IsDodgable(spell)
+	return wReady and parry[spell.name] and Menu.Combo.Spell:Value()
+end
+
+function DodgeTargeted(spell)
+	return target.r and targeted[spell.name]
+end
+
+function DodgeAoe(spell)
+	return target.r and aoe[spell.name]
+end
+
+local wPrediction = {}
+function ProcW()
+	for i = 1, #wPrediction do
+		local currentDelay = projectileSpeed[wPrediction[i].source.charName] and wPrediction[i].start + wPrediction[i].windup + (myHero.pos:DistanceTo(wPrediction[i].source.pos) / projectileSpeed[wPrediction[i].source.charName]) * (Menu.Adv.WR:Value() / 100) or wPrediction[i].start + wPrediction[i].windup * (Menu.Adv.WM:Value() / 100)
+		if os.clock() + Game.Latency() / 2000 >= currentDelay then
+			if wReady then 
+				myHero:CastSpell(1) 
+			end
+			table.remove(wPrediction, i)
+			i = i - 2
+		end
+	end
+end
+
+function OnRcvPacket(p)
+	if p.header == 0x34 then
+		p.pos = 1
+		local id = p:Decode4()
+		for i = 1, #wPrediction do
+			if id == wPrediction[i].id then
+				p.pos = 9
+				if p:Decode1() == 0x11 then
+					table.remove(wPrediction, i)
+					i = i - 2
+				end
+			end
+		end
+	end
+end
+
+function OnProcessSpell(unit, spell)
+	if not unit.isMe and unit.type == myHero.type and unit.team ~= myHero.team then
+		if IsAttack(unit, spell) and myHero == spell.target then
+			wPrediction[#wPrediction + 1] = {source = unit, id = unit.networkID, start = os.clock() - Game.Latency() / 2000, windup = spell.windUpTime}
+		elseif IsDodgable(spell) and myHero.pos:DistanceTo(spell.endPos) < 50 then
+			myHero:CastSpell(1)
+		elseif Menu.Combo.Dodge:Value() then
+			if DodgeTargeted(spell) and myHero == spell.target then
+				CastR()
+			elseif DodgeAoe(spell) then
+				if myHero.pos:DistanceTo(spell.endPos) < aoe[spell.name] then
+					CastR()
+				end
+			end
+		end
+	elseif unit.isMe then
+    	if spell.name:lower():find('attack') then
+			windup = spell.windUpTime
+			animation = spell.animationTime
+			last = os.clock() - Game.Latency() / 2000
+			OnAttack()
+			Allclass.DelayAction(AfterAttack, windup * 1000 - Game.Latency() / 2 + 25)
+		elseif spell.name:lower():find('flurry') then
+	    	last = 0
+		end
+    end
+end
+
+function OnAttack()
+    if Menu.Combo.Key:IsPressed() and target.aa then
+    	CastItem(3142)
+    end
+end
+
+function AfterAttack()
+	if Menu.Combo.Key:IsPressed() and target.aa then
+		local tiamat, hydra = ItemSlot(3074), ItemSlot(3077)
+		if Menu.Combo.Qinq:Value() then
+			if qReady and eReady then
+				myHero:CastSpell(2)
+				myHero:CastSpell(0, target.q)
+			elseif eReady and hydra and myHero:CanUseSpell(hydra) == Game.SpellState.READY then
+				myHero:CastSpell(2)
+				myHero:CastSpell(hydra)
+			elseif eReady and tiamat and myHero:CanUseSpell(tiamat) == Game.SpellState.READY then
+				myHero:CastSpell(2)
+				myHero:CastSpell(tiamat)
+			elseif qReady and not eReady then
+				myHero:CastSpell(0, target.q)
+				if hydra and myHero:CanUseSpell(hydra) == Game.SpellState.READY then
+					myHero:CastSpell(hydra)
+				elseif tiamat and myHero:CanUseSpell(tiamat) == Game.SpellState.READY then
+					myHero:CastSpell(tiamat)
+				end
+			elseif eReady then
+				myHero:CastSpell(2)
+			elseif qReady then
+				myHero:CastSpell(0, target.q)
+			elseif hydra and myHero:CanUseSpell(hydra) == Game.SpellState.READY then
+				myHero:CastSpell(hydra)
+			elseif tiamat and myHero:CanUseSpell(tiamat) == Game.SpellState.READY then
+				myHero:CastSpell(tiamat)
+			end
+		elseif eReady and hydra and myHero:CanUseSpell(hydra) == Game.SpellState.READY then
+			myHero:CastSpell(2)
+			myHero:CastSpell(hydra)
+		elseif eReady and tiamat and myHero:CanUseSpell(tiamat) == Game.SpellState.READY then
+			myHero:CastSpell(2)
+			myHero:CastSpell(tiamat)
+		elseif eReady then
+			myHero:CastSpell(2)
+		elseif hydra and myHero:CanUseSpell(hydra) == Game.SpellState.READY then
+			myHero:CastSpell(hydra)
+		elseif tiamat and myHero:CanUseSpell(tiamat) == Game.SpellState.READY then
+			myHero:CastSpell(tiamat)
+		end
+	end
+end
+
+function MyRange(target)
+	local myRange = myHero.range + 65
+	if Allclass.ValidTarget(target) then
+		myRange = myRange + target.boundingRadius
+	end
+	return myRange
+end
+
+function InRange(target)
+	if myHero.pos:DistanceTo(target.pos) < MyRange(target) then
+		return true
+	end
+	return false
+end
+
+function CanAttack() 
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + animation
+	end
+	return false
+end
+
+function CanMove()
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + windup + Menu.Orbwalker.Add:Value() / 1000
+	end
+	return false
+end
+
+function Magnet(target)
+	return target and mousePos:DistanceTo(target.pos) < 125 and myHero.pos:DistanceTo(target.pos) < Menu.Orbwalker.MRange:Value()
+end
+  
+function Orbwalk(target)
+	if target and CanAttack() and InRange(target) then
+		myHero:Attack(target)
+	elseif CanMove() then
+		if Magnet(target) and Menu.Orbwalker.Magnet:Value() then
+			myHero:Move(myHero.x, myHero.z)
+		else
+		    movePoint = VectorPos(myHero, mousePos, 250)
+			--local myVector = Geometry.Vector3(myHero.x, myHero.y, myHero.z)
+			--local mouseVector = Geometry.Vector3(mousePos.x, mousePos.y, mousePos.z)
+			--local movePoint = myVector + (mouseVector - myVector):Normalize() * 250
+			myHero:Move(mousePos.x, mousePos.z)
+		end
+	end
+end
+
+function OnDraw()
+  	if Menu.Draw.All:Value() and not myHero.dead then
+  		if Menu.Draw.Q.On:Value() then
+  		    local r = Menu.Draw.Q.R:Value()
+  		    local b = Menu.Draw.Q.B:Value()
+  		    local g = Menu.Draw.Q.G:Value()
+  			Render.GameCircle(myHero, 600, Graphics.ARGB(255, r, b, g):ToNumber()):Draw()
+  		end
+  		if Menu.Draw.QB.On:Value() then
+  		    local r = Menu.Draw.QB.R:Value()
+  		    local b = Menu.Draw.QB.B:Value()
+  		    local g = Menu.Draw.QB.G:Value()
+  			Render.GameCircle(myHero, Menu.Combo.Buffer:Value(), Graphics.ARGB(255, r, b, g):ToNumber()):Draw()
+  	    end
+  		if Menu.Draw.R.On:Value() then
+  			local r = Menu.Draw.R.R:Value()
+  		    local b = Menu.Draw.R.B:Value()
+  		    local g = Menu.Draw.R.G:Value()
+  			Render.GameCircle(myHero, 400, Graphics.ARGB(255, r, b, g):ToNumber()):Draw()
+  		end
+  		if Menu.Draw.Target.On:Value() and selected then
+  			local r = Menu.Draw.Target.R:Value()
+  		    local b = Menu.Draw.Target.B:Value()
+  		    local g = Menu.Draw.Target.G:Value()
+  			Render.GameCircle(myHero, 150, Graphics.ARGB(255, r, b, g):ToNumber()):Draw()
+  		end
+  		Render.GameCircle(myHero, myHero.range + 100, Graphics.ARGB(255, 125, 50, 0):ToNumber()):Draw()
+  	end
+end
+
+function Combo()
+	if Menu.Combo.Helper:IsPressed() and Menu.Combo.R:Value() then
+	    CastR()
+	end
+	if Menu.Combo.Key:IsPressed() then
+		Orbwalk(target.aa)
+		Botrk()
+		CastQ()
+	end
+end
+
+function OnTickCheck()
+	qReady = myHero:CanUseSpell(0) == Game.SpellState.READY
+  	wReady = myHero:CanUseSpell(1) == Game.SpellState.READY
+  	eReady = myHero:CanUseSpell(2) == Game.SpellState.READY
+  	rReady = myHero:CanUseSpell(3) == Game.SpellState.READY
+  	UpdateTargets()
+  	ProcW()
+end
+
+function OnTick()
+    if myHero.dead then return end
+    OnTickCheck()
+	Combo()
+end
+
+Callback.Bind('Load', function()
+	Callback.Bind('GameStart', function()
+	    InitGame()
+		Callback.Bind('Tick', OnTick)
+		Callback.Bind('Draw', OnDraw)
+		Callback.Bind('WndMsg', function(msg, key) OnWndMsg(msg, key) end)
+		Callback.Bind('RecvPacket', function(p) OnRcvPacket(p) end)
+		Callback.Bind('ProcessSpell', function(unit, spell) OnProcessSpell(unit, spell) end)
+		Allclass.DelayAction(function()
+	    	Game.Chat.Print('Han Fiora Loaded')
+		end, 2000)
+	end)
+end)
+
+local projectileSpeedTable = {['Velkoz'] = 2000, ['Xerath'] = 2000, ['Ziggs'] = 1500, ['KogMaw'] = 1800,['Ashe'] = 2000 , ['Soraka'] = 1000 , ['Jinx'] = 2750, ['Ahri'] = 1750, ['Lulu'] = 1450, ['Lissandra'] = 2000, ['Draven'] = 1700, ['FiddleSticks'] = 1750 , ['Sivir'] = 1750 , ['Corki'] = 2000 , ['Janna'] = 1200 , ['Sona'] = 1500, ['Caitlyn'] = 2500, ['Anivia'] = 1400, ['Heimerdinger'] = 1500 , ['Leblanc'] = 1700 , ['Viktor'] = 2300 , ['Orianna'] = 1450 , ['Vladimir'] = 1400 , ['Nidalee'] = 1750 , ['Syndra'] = 1800 , ['Veigar'] = 1100 , ['Twitch'] = 2500 , ['Urgot'] = 1300 , ['Karma'] = 1500 , ['TwistedFate'] = 1500 , ['Varus'] = 2000, ['Swain'] = 1600 , ['Vayne'] = 2000, ['Quinn'] = 2000, ['Brand'] = 2000 , ['Teemo'] = 1300 , ['Annie'] = 1200, ['Elise'] = 1600 , ['Nami'] = 1500, ['Tristana'] = 2250 , ['Graves'] = 3000 , ['Morgana'] = 1600, ['MissFortune'] = 2000, ['Cassiopeia'] = 1200, ['Lucian'] = 2800, ['Kennen'] = 1600 , ['Ryze'] = 2400, ['Lux'] = 1600 , ['Ezreal'] = 2000, ['Zyra'] = 1700 , ['Karthus'] = 1200 , ['Zilean'] = 1200, ['Malzahar'] = 2000}
+local parryTable = {['MissFortune'] = 'MissFortuneRicochetShot', ['Gangplank'] = 'Parley', ['Jax'] = 'jaxrelentlessattack', ['Talon'] = 'TalonNoxianDiplomacyAttack', ['Sivir'] = 'RicochetAttack', ['Renekton'] = 'RenektonExecute', ['Garen'] = 'GarenSlash2', ['Nasus'] = 'NasusQAttack', ['Shyvana'] = 'ShyvanaDoubleAttackHit', ['Leona'] = 'LeonaShieldOfDaybreakAttack', ['Darius'] = 'DariusNoxianTacticsONHAttack'}
+local targetedTable = {['Darius'] = 'DariusExecute', ['Garen'] = 'GarenR', ['Syndra'] = 'syndrar', ['Tristana'] = 'BusterShot', ['Veigar'] = 'VeigarPrimordialBurst'}
+function InitGame()
+	if myHero.charName ~= 'Fiora' then
+		return
+	end
+	for i = 1, Game.HeroCount() do
+		local player = Game.Hero(i)
+		if player.team ~= myHero.team then
+			table.insert(enemyHeroes, player)
+			if projectileSpeedTable[player.charName] then
+				table.insert(projectileSpeed, player.charName)
+				projectileSpeed[player.charName] = projectileSpeedTable[player.charName]
+			end
+			if parryTable[player.charName] then
+				table.insert(parry, player.charName)
+				parry[player.charName] = parryTable[player.charName]
+			end
+			if targetedTable[player.charName] then
+				table.insert(targeted, player.charName)
+				targeted[player.charName] = targetedTable[player.charName]
+			end
+			if player.charName == 'Amumu' then
+				table.insert(aoe, 'CurseoftheSadMummy')
+				aoe['CurseoftheSadMummy'] = 600
+			elseif player.charName == 'Gragas' then
+				table.insert(aoe, 'GragasR')
+				aoe['GragasR'] = 375
+			elseif player.charName == 'Annie' then
+				table.insert(aoe, 'InfernalGuardian')
+				aoe['InfernalGuardian'] = 270
+			elseif player.charName == 'Malphite' then
+				table.insert(aoe, 'UFSlash')
+				aoe['UFSlash'] = 270
+			elseif player.charName == 'Galio' then
+				table.insert(aoe, 'GalioIdolOfDurand')
+				aoe['GalioIdolOfDurand'] = 600
+			end
+		end
+	end
+	Menu()
+end
+
+function Menu()
+	Menu = MenuConfig('Han Fiora')
+	Menu:Icon('fa-empire')
+
+	Menu:Menu('Combo', 'Main Settings')
+	Menu.Combo:Icon('fa-gears')
+	Menu.Combo:Section('Q', 'Q')
+	Menu.Combo:Boolean('Q', 'Use Q', true)
+	Menu.Combo:Slider('Buffer', 'Min range to cast Q', 325, 0, 600)
+	Menu.Combo:Boolean('Qinq', 'Use Q in melee combo', false)
+	Menu.Combo:Section('W', 'W')
+	Menu.Combo:Menu('Basic', 'Basic Attacks')
+	for i = 1, #enemyHeroes do
+		Menu.Combo.Basic:Boolean(enemyHeroes[i].charName, enemyHeroes[i].charName, true)
+	end
+	Menu.Combo:Boolean('Spell', 'Dodge spells', true)
+	Menu.Combo:Section('R',' R')
+	Menu.Combo:Boolean('Dodge', 'Dodge dangerous spells', true)
+	Menu.Combo:Boolean('R', 'Use R Helper', true)
+	Menu.Combo:KeyBinding('Helper', 'R Helper', 'R')
+	Menu.Combo:Section('Binding', 'KOREA')
+	Menu.Combo:KeyBinding('Key', 'Combo Key', 'SPACE')
+	
+	Menu:Menu('TS','Target Selector')
+	Menu.TS:Icon('fa-bullseye')
+	Menu.TS:DropDown('Mode', 'TS mode', 1, {'Less Cast', 'Lowest HP'})
+	Menu.TS:Boolean('Selected', 'Focus left-clicked target', true)	
+
+	Menu:Menu('Orbwalker', 'Orbwalker')
+	Menu.Orbwalker:Icon('fa-joomla')
+	Menu.Orbwalker:Slider('Add', 'Extra windup', 10, 0, 100)
+	Menu.Orbwalker:Boolean('Magnet', 'Use magnet', true)
+	Menu.Orbwalker:Slider('MRange', 'Magnet range', 75, 0, 150)
+	
+	Menu:Menu('Draw', 'Drawings')
+	Menu.Draw:Icon('fa-magic')
+	Menu.Draw:Boolean('All', 'Use Drawings', true)
+	Menu.Draw:Menu('Q', 'Q')
+	Menu.Draw.Q:Boolean('On', 'Draw Q', true)
+	Menu.Draw.Q:Slider('R', 'red', 125, 0, 250)
+	Menu.Draw.Q:Slider('B', 'blue', 50, 0, 250)
+	Menu.Draw.Q:Slider('G', 'green', 0, 0, 250)
+	Menu.Draw:Menu('QB', 'Q Buffer')
+	Menu.Draw.QB:Boolean('On', 'Draw Q Buffer', true)
+	Menu.Draw.QB:Slider('R', 'red', 125, 0, 250)
+	Menu.Draw.QB:Slider('B', 'blue', 50, 0, 250)
+	Menu.Draw.QB:Slider('G', 'green', 0, 0, 250)
+	Menu.Draw:Menu('R', 'R')
+	Menu.Draw.R:Boolean('On', 'Draw R', true)
+	Menu.Draw.R:Slider('R', 'red', 75, 0, 250)
+	Menu.Draw.R:Slider('B', 'blue', 75, 0, 250)
+	Menu.Draw.R:Slider('G', 'green', 75, 0, 250)
+	Menu.Draw:Menu('Target', 'Left-clicked Target')
+	Menu.Draw.Target:Boolean('On', 'Draw Target', true)
+	Menu.Draw.Target:Slider('R', 'red', 250, 0, 250)
+	Menu.Draw.Target:Slider('B', 'blue', 0, 0, 250)
+	Menu.Draw.Target:Slider('G', 'green', 0, 0, 250)
+	
+	Menu:Menu('Adv', 'Advanced')
+	Menu.Adv:Icon('fa-anchor')
+	Menu.Adv:Slider('WR', 'W Ranged offset', 80, 0, 99)
+	Menu.Adv:Slider('WM', 'W Melee offset', 30, 0, 99)
+end  
