@@ -1,0 +1,255 @@
+local qReady, wReady, eReady, rReady = false, false, false, false
+local last, windup, animation = 0, 3, 0.65
+local ballMoving, ballPos = false, nil
+local target, selected = nil, nil
+local enemyHeroes, allyHeroes = {}, {}
+
+function TargetSelector()
+	target = nil
+	if selected then
+	    if Allclass.ValidTarget(selected) and myHero.pos:DistanceTo(selected.pos) < 825 then
+    	    target = selected
+		else
+			Game.Chat.Print('<font color=\'#FFFFFF\'>Orianna: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+			selected = nil
+		end
+	end
+	if not selected then
+		local best = 0
+		for i, enemy in ipairs(enemyHeroes) do
+			if Allclass.ValidTarget(enemy) and myHero.pos:DistanceTo(enemy.pos) < 825 then
+	        	if myHero.ap / player.magicArmor / player.health > best then
+	        		target = enemy
+	        	end
+	        end
+		end
+	end
+end
+
+function OnWndMsg(msg, key)
+	if msg == 514 then
+		local radius = 200
+		local current = nil
+		for i = 1, #enemyHeroes do
+			local player = enemyHeroes[i]
+			if Allclass.ValidTarget(player) and mousePos:DistanceTo(player.pos) <= radius then
+				current = player
+			end
+		end
+	    if selected and (not current or current.charName == selected.charName) then
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Orianna: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+		    selected = nil
+	    elseif current and not selected then
+		    selected = current
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Orianna: New target <font color=\'#00FF00\'><b>SELECTED</b></font>: '..selected.charName..'.</font>')
+		end
+	end
+end
+
+function VectorPos(v1, v2, range)
+	local v3 = Geometry.Vector3(v1.x, v1.y, v1.z)
+    local v4 = Geometry.Vector3(v2.x, v2.y, v2.z)
+    local v5 = (v3 - v4):Normalize() * range
+    local p1 = v3 + v5
+    local p2 = v3 - v5
+    if v4:DistanceTo(p1) < v4:DistanceTo(p2) then
+    	return p1
+    else
+    	return p2
+    end
+end
+
+function MinDelay(pos)
+	local normal = ballPos:DistanceTo(pos) / 1200
+	local better = nil
+	for i, ally in ipairs(allyHeroes) do
+		if Allclass.ValidTarget(ally) and myHero.pos:DistanceTo(ally) < 1095 then
+			local delay = ally.pos:DistanceTo(pos) / 1200 + ally.pos:DistanceTo(ballPos.pos) / 1700
+			if delay < normal then
+				normal = delay
+				better = ally
+			end
+		end
+	end
+	return normal < 0.75 * ballPos.pos:DistanceTo(pos) / 1200 and better
+end
+
+function CastQ()
+	local predPos, hitChance = BasicPrediction.GetPredictedPosition(target, 825, 1800, 0, 80, false, false, ballPos)
+	if hitChance > 1 then
+		if myHero.pos:DistanceTo(predPos) < 1080 + target.boundingRadius then
+			if eReady then
+				local eTarget = MinDelay(predPos)
+				if eTarget then
+					myHero:CastSpell(2, eTarget)
+				elseif myHero.pos:DistanceTo(predPos) < 825 then
+					myHero:CastSpell(0, predPos.x, predPos.z)
+				else
+					predPos = VectorPos(myHero, predPos, 825)
+					myHero:CastSpell(0, predPos.x, predPos.z)
+				end
+			end
+		end
+	end
+end
+
+function CastW()
+	local hit = 0
+	--if ballPos then Game.Chat.Print("OI") end
+	for i, enemy in ipairs(enemyHeroes) do
+		if Allclass.ValidTarget(enemy) then
+		    --Game.Chat.Print(enemy.charName.."")
+			local predPos = BasicPrediction.GetPredictedPosition(enemy, math.huge, math.huge, 0.25, 0, false, false, ballPos)
+			if ballPos.pos:DistanceTo(predPos) <= 245 and ballPos.pos:DistanceTo(enemy.pos) < 245 then
+				hit = hit + 1
+			end
+		end
+	end
+	if Menu.Combo.Key:IsPressed() and hit >= 1 then
+		myHero:CastSpell(1)
+	elseif hit >= 1 then
+		myHero:CastSpell(1)
+	end
+end
+
+function Combo()
+	if Menu.Orbwalker.Key:IsPressed() then Orbwalk(target) end
+	if wReady then CastW() end
+	if Menu.Combo.Key:IsPressed() and qReady and target then CastQ() end
+end
+
+function OnCreateObj(obj)
+	if obj.name:lower():find("yomu_ring_green") then
+		ballMoving = false
+		ballPos = obj
+	elseif obj.name:lower():find("orianna_ball_flash_reverse") then
+		ballMoving = false
+		ballPos = myHero
+	end
+end
+
+function OnProcessSpell(unit, spell)
+	if unit.isMe then
+    	if spell.name:lower():find('attack') then
+			windup = spell.windUpTime
+			animation = spell.animationTime
+			last = os.clock() - Game.Latency() / 2000
+    elseif spell.name:lower():find("orianaizunacommand") then
+        Game.Chat.Print("Oi")
+			ballMoving = true
+			Allclass.DelayAction(function(v)
+			--	ballPos = v
+			end, ballPos.pos:DistanceTo(spell.endPos) / 1200 * 1000 - Game.Latency() - 350, {Geometry.Vector3(spell.endPos)})
+		elseif spell.name:lower():find("orianaredactcommand") then
+			ballMoving = true
+			ballPos = spell.target
+		end
+    end
+end
+
+function MyRange(target)
+	local myRange = myHero.range + 65
+	if Allclass.ValidTarget(target) then
+		myRange = myRange + target.boundingRadius
+	end
+	return myRange
+end
+
+function InRange(target)
+	if myHero.pos:DistanceTo(target.pos) < MyRange(target) then
+		return true
+	end
+	return false
+end
+
+function CanAttack() 
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + animation
+	end
+	return false
+end
+
+function CanMove()
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + windup + Menu.Orbwalker.Add:Value() / 1000
+	end
+	return false
+end
+
+function Orbwalk(target)
+	if target and CanAttack() and InRange(target) then
+		myHero:Attack(target)
+	elseif CanMove() then
+		myHero:Move(mousePos.x, mousePos.z)
+	end
+end
+
+function OnDraw()
+    if ballPos.pos then
+        --Game.Chat.Print(myHero.pos:DistanceTo(ballPos.pos).."")
+    else
+       -- Game.Chat.Print(myHero.pos:DistanceTo(ballPos).."")
+    end
+    --Render.GameCircle(myHero, myHero.range + 100, Graphics.ARGB(255, 125, 50, 0):ToNumber()):Draw()
+   --	Graphics.DrawCircle(ballPos.pos, 150, Graphics.ARGB(255, 150, 75, 0))
+end
+
+function OnTickCheck()
+	qReady = myHero:CanUseSpell(0) == Game.SpellState.READY
+	wReady = myHero:CanUseSpell(1) == Game.SpellState.READY
+  	eReady = myHero:CanUseSpell(2) == Game.SpellState.READY
+  	rReady = myHero:CanUseSpell(3) == Game.SpellState.READY
+end
+
+function OnTick()
+    if myHero.dead then return end
+    TargetSelector()
+    OnTickCheck()
+    Combo()
+end
+
+function InitGame()
+	if myHero.charName ~= 'Orianna' then
+		return
+	end
+	for i = 1, Game.HeroCount() do
+		local player = Game.Hero(i)
+		if player.team ~= myHero.team then
+			table.insert(enemyHeroes, player)
+		else
+		    table.insert(allyHeroes, player)
+		end
+    end
+    ballMoving = false
+    ballPos = myHero
+    BasicPrediction.EnablePrediction()
+	Menu()
+end
+
+function Menu()
+	Menu = MenuConfig('Orianna')
+	Menu:Icon('fa-empire')
+
+	Menu:Menu('Combo', 'Main Settings')
+	Menu.Combo:KeyBinding('Key', 'Combo Key', 'SPACE')
+
+	Menu:Menu('Orbwalker', 'Orbwalker')
+	Menu.Orbwalker:Icon('fa-joomla')
+	Menu.Orbwalker:Slider('Add', 'Extra windup', 10, 0, 100)
+	Menu.Orbwalker:KeyBinding('Key', 'Orbwalk Key', 'SPACE')	
+end
+
+Callback.Bind('Load', function()
+	Callback.Bind('GameStart', function()
+		InitGame() 
+		Callback.Bind('Tick', OnTick)
+		Callback.Bind('Draw', OnDraw)
+		Callback.Bind('CreateObj', function(obj) OnCreateObj(obj) end)
+		Callback.Bind("OnGainBuff", function(Unit, Buff)
+            print(Unit.name.." got Buff: "..Buff.name)
+        end)
+		--Callback.Bind('DeleteObj', function(obj) OnDeleteObj(obj) end)
+		Callback.Bind('ProcessSpell', function(unit, spell) OnProcessSpell(unit, spell) end)
+		Game.Chat.Print('loaded')
+	end)
+end)
