@@ -1,0 +1,554 @@
+local target = {aa = nil, q1 = nil, q2 = nil, gap = nil, botrk = nil}
+local qReady, eReady, rReady = false, false, false
+local last, windup, animation = 0, 3, 0.65
+local enemyHeroes = {}
+
+function ItemSlot(id)
+    for i = 4, 9, 1 do
+        if myHero:GetItem(i) and myHero:GetItem(i).id == id then
+            return i
+        end
+    end
+end
+
+function CastItem(id, var1, var2)
+    local slot = ItemSlot(id)
+    if slot == nil then return end
+    if (myHero:CanUseSpell(slot) == Game.SpellState.READY) then
+        if (var2 ~= nil) then
+            myHero:CastSpell(slot, var1, var2)
+        elseif (var1 ~= nil) then
+            myHero:CastSpell(slot, var1)
+        else
+            myHero:CastSpell(slot)
+        end
+    end
+end
+
+function HasBuff(unit, name)
+	for i = 1, unit.buffCount do
+		local buff = unit:GetBuff(i)
+		if buff and buff.name == name and buff.startT <= Game.ServerTimer() and buff.endT >= Game.ServerTimer() then
+			return true
+		end
+	end
+	return false
+end
+
+local selected, q2 = nil, false
+function UpdateTargets()
+    --if isDashing then Game.Chat.Print("dash") end
+	target.aa, target.q1, target.q2, target.gap, target.botrk = nil, nil, nil, nil, nil
+	if selected then
+		if Allclass.ValidTarget(selected) then
+			local dist = myHero.pos:DistanceTo(selected.pos)
+			if dist < 475 then
+				target.q1 = selected
+				target.botrk = selected
+			end
+			if qReady and q2 and dist  < 1000 then
+				target.q2 = selected
+			end
+			if dist < MyRange(selected) then
+				target.aa = selected
+			end
+			if dist < Menu.Combo.ERange:Value() then
+				target.gap = selected
+			end
+		else
+			Game.Chat.Print('<font color=\'#FFFFFF\'>Yasuo: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+			selected = nil
+		end
+	end
+	if not selected then
+		if Menu.TS.Mode:Value() == 1 then
+			local p, q, r, s = 0, 0, 0, 0
+			for i = 1, #enemyHeroes do
+				local player = enemyHeroes[i]
+				if Allclass.ValidTarget(player) then
+	    			local dist = myHero.pos:DistanceTo(player.pos)
+		        	local ratio = myHero.totalDamage / player.armor / player.health
+		    	    if dist < 475 and ratio > p then
+		    	        target.q1 = player
+		    	        target.botrk = player
+		    	        p = ratio
+		    	    end
+		    	    if qReady and q2 and dist  < 1000 and ratio > q then
+		    	    	target.q2 = player
+		    	    	q = ratio
+		    	    end
+		        	if dist < MyRange(selected) and ratio > r then
+		        		target.aa = player
+		        		r = ratio
+		        	end
+		        	if dist < Menu.Combo.ERange:Value() and ratio > s then
+		        	    target.gap = player
+		        	    s = ratio
+		        	end
+	        	end
+			end
+		elseif Menu.TS.Mode:Value() == 2 then
+			local p, q, r, s = 10000, 10000, 10000, 10000
+			for i = 1, #enemyHeroes do
+				local player = enemyHeroes[i]
+				if Allclass.ValidTarget(player) then
+	    			local dist = myHero.pos:DistanceTo(player.pos)
+	        		local health = player.health
+	        		if dist < 475 and health < p then
+		    	        target.q1 = player
+		    	        target.botrk = player
+		    	        p = health
+		    	    end
+		    	    if qReady and q2 and dist  < 1000 and health < q then
+		    	    	target.q2 = player
+		    	    	q = health
+		    	    end
+		        	if dist < MyRange(selected) and health < r then
+		        		target.aa = player
+		        		r = health
+		        	end
+		        	if dist < Menu.Combo.ERange:Value() and health < s then
+		        	    target.gap = player
+		        	    s = health
+		        	end
+	        	end
+	        end
+		end
+	end
+end
+
+function OnWndMsg(msg, key)
+	if msg == 514 and Menu.TS.Selected:Value() then
+		local radius = 200
+		local current = nil
+		for i = 1, #enemyHeroes do
+			local player = enemyHeroes[i]
+			if Allclass.ValidTarget(player) and mousePos:DistanceTo(player.pos) <= radius then
+				current = player
+			end
+		end
+	    if selected and (not current or current.charName == selected.charName) then
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Yasuo: Target <font color=\'#FF0000\'><b>UNSELECTED</b></font>: '..selected.charName..'.</font>')
+		    selected = nil
+	    elseif current and not selected then
+		    selected = current
+		    Game.Chat.Print('<font color=\'#FFFFFF\'>Yasuo: New target <font color=\'#00FF00\'><b>SELECTED</b></font>: '..selected.charName..'.</font>')
+		end
+	end
+end
+
+function Botrk()
+	if target.botrk then
+		if Menu.Misc.Item.Botrk:Value() then CastItem(3153, target.botrk) end
+		--if Menu.Misc.Item.Bwc:Value() then CastItem(3144, target.botrk) end
+	end
+end
+
+local qSpeed, qSpeed2, qDelay, qDelay2 , isDashing = 1500, 1500, 0.5, 0.5, false
+function CastQ()
+    if qReady then
+	    if isDashing then
+    	    if target.q1 and qReady and myHero.pos:DistanceTo(target.q1.pos) < 300 then
+    	        myHero:CastSpell(0, target.q1.x, target.q1.z)
+    	    end
+    	elseif target.q1 and not q2 and ((not eReady or HasBuff(target.q1, 'YasuoDashWrapper')) or not Menu.Combo.E:Value()) then
+    		local castPos, hitChance  = BasicPrediction.GetPredictedPosition(target.q1, 455, qSpeed, qDelay, 55, false, false, myHero)
+    		if castPos and hitChance >= 1 then
+    		    local pos1 = Geometry.Vector3(target.q1.x, target.q1.y, target.q1.z) + (Geometry.Vector3(target.q1.x, target.q1.y, target.q1.z) - Geometry.Vector3(castPos.x, castPos.y, castPos.z)):Normalize() * (castPos:DistanceTo(target.q1.pos) / 2)
+    			local pos2 = Geometry.Vector3(target.q1.x, target.q1.y, target.q1.z) - (Geometry.Vector3(target.q1.x, target.q1.y, target.q1.z) - Geometry.Vector3(castPos.x, castPos.y, castPos.z)):Normalize() * (castPos:DistanceTo(target.q1.pos) / 2)
+    			if castPos:DistanceTo(pos1) < castPos:DistanceTo(pos2) then
+    			    myHero:CastSpell(0, pos1.x, pos1.z)
+    			else
+    			    myHero:CastSpell(0, pos2.x, pos2.z)
+    			end
+    		end
+	    elseif target.q2 then
+    		local castPos, hitChance = BasicPrediction.GetPredictedPosition(target.q2, 1000, qSpeed2, qDelay2, 90, false, false, myHero)
+    		if castPos and hitChance > 1 then
+    			myHero:CastSpell(0, castPos.x, castPos.z)
+    		end
+    	end
+    end
+end
+
+local enemyMinion1 = {}
+function IsValid(obj)
+    return obj and obj.team ~= myHero.team and not obj.dead and obj.team ~= myHero.team and obj.type:find('Minion')
+	--return obj and obj.valid and not obj.dead and obj.health > 0 and obj.type:find('Minion') and obj.charName and not obj.charName == 'TestCubeRender' and obj.team ~= myHero.team and obj.name
+end
+
+local knockedUp = {}
+function OnCreateObj(obj)
+	if obj and myHero.pos:DistanceTo(obj.pos) < 150 and obj.name:find('wind_ready_buff') then
+		q2 = true
+    elseif obj and (obj.name == 'Yasuo_base_R_indicator_beam.troy' or obj.name == 'Yasuo_Skin02_R_indicator_beam.troy') then
+		table.insert(knockedUp, obj)
+    elseif IsValid(obj) then
+		table.insert(enemyMinion1, obj)
+	end
+end
+
+function OnDeleteObj(obj)
+    if obj and myHero.pos:DistanceTo(obj.pos) < 150 and obj.name:find('wind_ready_buff') then
+		q2 = false
+	elseif obj and (obj.name == 'Yasuo_base_R_indicator_beam.troy' or obj.name == 'Yasuo_Skin02_R_indicator_beam.troy') then
+		table.remove(knockedUp, 1)
+    else
+		for i, m in ipairs(enemyMinion1) do
+			if m == obj then
+				table.remove(enemyMinion1, i)
+			end
+		end
+	end
+end
+
+local eDelay = 475 / 1035 + 0.25
+function CastE()
+	if target.q1 and eReady and not HasBuff(target.q1, 'YasuoDashWrapper') and Menu.Combo.E:Value() then
+		if Menu.Combo.EBlock:Value() and  myHero.pos:DistanceTo(target.q1.pos) > 275 then
+		    myHero:CastSpell(2, target.q1)
+		elseif not Menu.Combo.EBlock:Value() then
+		    myHero:CastSpell(2, target.q1)
+        end
+	elseif Menu.Combo.Gap:Value() and not isDashing then
+		for i, m in ipairs(enemyMinion1) do
+			if not IsValid(m) then
+				table.remove(enemyMinion1, i)
+					i = i - 2
+			end
+		end
+		local enemyMinion2 = {}
+		for i, m in ipairs(enemyMinion1) do
+			if IsValid(m) and myHero.pos:DistanceTo(m.pos) < 475 then
+				table.insert(enemyMinion2, m)
+			end
+		end
+		if target.gap and eReady then
+			local gapclose = {obj = nil, time = math.huge}
+			local predPos = BasicPrediction.GetPredictedPosition(target.gap, math.huge, math.huge, eDelay, 0, false, false, myHero)
+			local onWalk = myHero.pos:DistanceTo(predPos) / myHero.ms
+			for i = 1, #enemyMinion2 do
+				if not HasBuff(enemyMinion2[i], 'YasuoDashWrapper') then
+					local onDash = eDelay + AfterE(enemyMinion2[i]):DistanceTo(predPos) / myHero.ms
+					if onDash < onWalk and onDash < gapclose.time then
+						gapclose.obj = enemyMinion2[i]
+						gapclose.time = onDash
+					end
+				end
+		    end
+		    for i = 1, #enemyHeroes do
+		        if target.gap ~= enemyHeroes[i] and myHero.pos:DistanceTo(enemyHeroes[i].pos) < 475 and not HasBuff(enemyHeroes[i], 'YasuoDashWrapper') then
+					local onDash = eDelay + AfterE(enemyHeroes[i]):DistanceTo(predPos) / myHero.ms
+					if onDash < onWalk and onDash < gapclose.time then
+						gapclose.obj = enemyHeroes[i]
+						gapclose.time = onDash
+					end
+				end
+		    end
+			if gapclose.obj then
+				myHero:CastSpell(2, gapclose.obj)
+			end
+		end
+	end
+end
+
+function AfterE(obj)
+	local pos1 = Geometry.Vector3(myHero.x, myHero.y, myHero.z) + (Geometry.Vector3(myHero.x, myHero.y, myHero.z) - Geometry.Vector3(obj.x, obj.y, obj.z)):Normalize() * 475
+	local pos2 = Geometry.Vector3(myHero.x, myHero.y, myHero.z) - (Geometry.Vector3(myHero.x, myHero.y, myHero.z) - Geometry.Vector3(obj.x, obj.y, obj.z)):Normalize() * 475
+	if obj:DistanceTo(pos1) < obj:DistanceTo(pos2) then return pos1 else return pos2 end
+end
+
+function CastR()
+	local nearest = {obj = nil, dist = math.huge}
+	for i = 1, #knockedUp do
+		local dist = myHero.pos:DistanceTo(knockedUp[i].pos)
+		if dist < 1300 and dist < nearest.dist then
+			nearest.obj = knockedUp[i]
+		end
+	end
+	if nearest.obj then
+		local rHit = 0
+		for i = 1, #knockedUp do
+			if nearest.obj.pos:DistanceTo(knockedUp[i].pos) < 1300 then
+				rHit = rHit + 1
+			end
+		end
+		if rReady then
+			if rHit >= Menu.Combo.AutoR:Value() then
+				myHero:CastSpell(3)
+			--	Game.Chat.Print(#knockedUp.."")
+			elseif rHit >= Menu.Combo.ComboR:Value() and Menu.Combo.Key:IsPressed() then
+				myHero:CastSpell(3)
+			--	Game.Chat.Print(#knockedUp.."")
+			end
+		end
+	end
+end
+
+function OnRecvPacket(p)
+	if p.header == 0x34 then
+		p.pos = 1
+		if p:Decode4() == myHero.networkID then
+			p.pos = 9
+			if p:Decode1() == 0x11 then
+			    Game.Chat.Print("oi")
+				last = 0
+			end
+		end
+	end
+end
+
+local eTable = {}
+function OnProcessSpell(unit, spell)
+	if unit.isMe then
+    	if spell.name:lower():find('attack') then
+			windup = spell.windUpTime
+			animation = spell.animationTime
+			last = os.clock() - Game.Latency() / 2000
+			OnAttack()
+			Allclass.DelayAction(AfterAttack, windup * 1000 - Game.Latency() / 2)
+		elseif spell.name:lower():find('dashwrapper') and not isDashing then
+		    --Game.Chat.Print(spell.target.name.."")
+			--table.insert(eTable, {obj = spell.target, start = os.clock() - Game.Latency() / 2000})
+			isDashing = true
+			Allclass.DelayAction(function()
+		        isDashing = false
+			end, eDelay * 1000 - Game.Latency() / 2)
+    elseif spell.name == 'yasuoq' or spell.name == 'yasuoq2' then
+	        qSpeed = 475 / spell.windUpTime
+	        qDelay = spell.windUpTime
+	    elseif spell.name == 'yasuoq3' then
+	        qSpeed2 = 475 / spell.windUpTime
+	        qDelay2 = spell.windUpTime
+	    end
+    end
+end
+
+function OnAttack()
+    if Menu.Combo.Key:IsPressed() and target.aa and Menu.Misc.Item.Ygb:Value() then
+    	CastItem(3142)
+    end
+end
+
+function AfterAttack()
+	if Menu.Combo.Key:IsPressed() and target.aa then
+		if Menu.Misc.Item.Hydra:Value() then CastItem(3077) end
+		if Menu.Misc.Item.Tiamat:Value() then CastItem(3074) end
+	end
+end
+
+function MyRange(target)
+	local myRange = myHero.range + 65
+	if Allclass.ValidTarget(target) then
+		myRange = myRange + target.boundingRadius
+	end
+	return myRange
+end
+
+function InRange(target)
+	if myHero.pos:DistanceTo(target.pos) < MyRange(target) then
+		return true
+	end
+	return false
+end
+
+function CanAttack() 
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + animation
+	end
+	return false
+end
+
+function CanMove()
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + windup + Menu.Orbwalker.Add:Value() / 1000
+	end
+	return false
+end
+
+function Magnet(target)
+	return target and mousePos:DistanceTo(target.pos) < 125 and myHero.pos:DistanceTo(target.pos) < Menu.Orbwalker.MRange:Value()
+end
+  
+function Orbwalk(target)
+	if CanAttack() and Allclass.ValidTarget(target) and InRange(target) then
+		myHero:Attack(target)
+	elseif CanMove() then
+		if Magnet(target) and Menu.Orbwalker.Magnet:Value() then
+       		myHero:Move(myHero.x, myHero.z)
+		else
+			myHero:Move(mousePos.x, mousePos.z)
+		end
+	end
+end
+
+function OnDraw()
+  	if Menu.Draw.All:Value() and not myHero.dead then
+  		--[[for i = 1, #eTable do
+  		    local o = eTable[i].obj
+  			if o and not o.dead then
+  				if os.clock() - eTable[i].start > 7 then
+  					table.remove(eTable, i)
+  					i = i - 2
+  				else
+	  				local range = (os.clock() - eTable[i].start) / 7 * 200
+	  				Graphics.DrawCircle(o, range, Graphics.ARGB(255, 0, 255, 0))
+	  				Graphics.DrawCircle(o, 200, Graphics.ARGB(255, 255, 0, 0))
+	  			end
+  		    else
+  				table.remove(eTable, i)
+  		    	i = i - 2
+  			end
+  		end]]
+  		if Menu.Draw.AA.On:Value() then
+  		    local r = Menu.Draw.AA.R:Value()
+  		    local b = Menu.Draw.AA.B:Value()
+  		    local g = Menu.Draw.AA.G:Value()
+  			Graphics.DrawCircle(myHero, myHero.range + 65, Graphics.ARGB(255, r, b, g))
+  		end
+  		if Menu.Draw.Q.On:Value() then
+  		    local r = Menu.Draw.Q.R:Value()
+  		    local b = Menu.Draw.Q.B:Value()
+  		    local g = Menu.Draw.Q.G:Value()
+  			Graphics.DrawCircle(myHero, 475, Graphics.ARGB(255, r, b, g))
+  		end
+  		if Menu.Draw.Q3.On:Value() and q2 then
+  		    local r = Menu.Draw.Q3.R:Value()
+  		    local b = Menu.Draw.Q3.B:Value()
+  		    local g = Menu.Draw.Q3.G:Value()
+  			Graphics.DrawCircle(myHero, 1135, Graphics.ARGB(255, r, b, g))
+  		end
+  		if Menu.Draw.Target.On:Value() and selected then
+  			local r = Menu.Draw.Target.R:Value()
+  		    local b = Menu.Draw.Target.B:Value()
+  		    local g = Menu.Draw.Target.G:Value()
+  			Graphics.DrawCircle(selected, 150, Graphics.ARGB(255, r, b, g))
+  		end
+  	end
+end
+
+function Combo()
+	if Menu.Combo.Key:IsPressed() then
+		Orbwalk(target.aa)
+		if Menu.Combo.Q:Value() then CastQ() end
+		CastE()
+		Botrk()
+	end
+end
+
+function OnTickCheck()
+	-- oi then Game.Chat.Print("3") end
+	qReady = myHero:CanUseSpell(0) == Game.SpellState.READY
+  	eReady = myHero:CanUseSpell(2) == Game.SpellState.READY
+  	rReady = myHero:CanUseSpell(3) == Game.SpellState.READY
+  	UpdateTargets()
+  	--KillSteal()
+  	CastR()
+end
+local check = true
+function OnTick()
+    if myHero.dead then return end
+    OnTickCheck()
+	Combo()
+end
+
+Callback.Bind('Load', function()
+	Callback.Bind('GameStart', function()
+	    InitGame()
+		Callback.Bind('Tick', OnTick)
+		Callback.Bind('Draw', OnDraw)
+		Callback.Bind('WndMsg', function(msg, key) OnWndMsg(msg, key) end)
+		Callback.Bind('RecvPacket', function(p) OnRecvPacket(p) end)
+		Callback.Bind('CreateObj', function(obj) OnCreateObj(obj) end) 
+		Callback.Bind('DeleteObj', function(obj) OnDeleteObj(obj) end)
+		Callback.Bind('ProcessSpell', function(unit, spell) OnProcessSpell(unit, spell) end)
+		Allclass.DelayAction(function()
+	    		Game.Chat.Print('<font color=\"#CC0000\">EXODUS </font>'..'<font color=\"#999999\">Yasuo lodaded. Have fun</font>')
+		end, 2000)
+	end)
+end)
+
+function InitGame()
+	if myHero.charName ~= 'Yasuo' then
+		return
+	end
+	for i = 1, Game.HeroCount() do
+		local player = Game.Hero(i)
+		if player.team ~= myHero.team then
+			table.insert(enemyHeroes, player)
+		end
+	end
+	for i = 0, Game.ObjectCount() do 
+		if IsValid(Game.Object(i)) then 
+			table.insert(enemyMinion1, Game.Object(i)) 
+		end 
+    end
+	BasicPrediction.EnablePrediction()
+	Menu()
+end
+
+function Menu()
+	Menu = MenuConfig('EXODUS YASUO')
+	Menu:Icon('fa-empire')
+
+	Menu:Menu('Combo', 'Main Settings')
+	Menu.Combo:Icon('fa-gears')
+	Menu.Combo:Section('Q', 'Q')
+	Menu.Combo:Boolean('Q', 'Use Q', true)
+	Menu.Combo:Section('E', 'E')
+	Menu.Combo:Boolean('E', 'E in Combo', true)
+	Menu.Combo:Boolean('EBlock', 'Dont use E if target is in melee range', false)
+	Menu.Combo:Boolean('Gap', 'E for Gapclose', true)
+	Menu.Combo:Slider('ERange', 'Gapclose target range', 1200, 0, 2000)
+	Menu.Combo:Section('R',' R')
+	Menu.Combo:Slider('AutoR', 'Auto R if x targets hit', 3, 1, 5)
+	Menu.Combo:Slider('ComboR', 'Combo R if x targets hit', 2, 1, 5)
+	Menu.Combo:Section('Binding', 'COMBO')
+	Menu.Combo:KeyBinding('Key', 'Combo Key', 'SPACE')
+	
+	Menu:Menu('Misc', 'MISC')
+	Menu.Misc:Icon('fa-gears')
+	Menu.Misc:Menu('Item', 'Item Manager')
+	Menu.Misc.Item:Boolean('Botrk', 'Blade of the ruined king', true)
+	--Menu.Misc.Item:Boolean('Bwc', 'Bilgewater Cutlass', true)
+	Menu.Misc.Item:Boolean('Ygb', 'Youmuus Ghostblade', true)
+	Menu.Misc.Item:Boolean('Hydra', 'Hydra', true)
+	Menu.Misc.Item:Boolean('Tiamat', 'Tiamat', true)
+
+	Menu:Menu('TS','Target Selector')
+	Menu.TS:Icon('fa-bullseye')
+	Menu.TS:DropDown('Mode', 'TS mode', 1, {'Less Cast', 'Lowest HP'})
+	Menu.TS:Boolean('Selected', 'Focus left-clicked target', true)	
+
+	Menu:Menu('Orbwalker', 'Orbwalker')
+	Menu.Orbwalker:Icon('fa-joomla')
+	Menu.Orbwalker:Slider('Add', 'Extra windup', 10, 0, 100)
+	Menu.Orbwalker:Boolean('Magnet', 'Use magnet', true)
+	Menu.Orbwalker:Slider('MRange', 'Magnet range', 75, 0, 150)
+	
+	Menu:Menu('Draw', 'Drawings')
+	Menu.Draw:Icon('fa-magic')
+	Menu.Draw:Boolean('All', 'Use Drawings', true)
+	Menu.Draw:Menu('AA', 'AA')
+	Menu.Draw.AA:Boolean('On', 'Draw AA', true)
+	Menu.Draw.AA:Slider('R', 'red', 125, 0, 250)
+	Menu.Draw.AA:Slider('B', 'blue', 50, 0, 250)
+	Menu.Draw.AA:Slider('G', 'green', 0, 0, 250)
+	Menu.Draw:Menu('Q', 'Q')
+	Menu.Draw.Q:Boolean('On', 'Draw Q/E', true)
+	Menu.Draw.Q:Slider('R', 'red', 125, 0, 250)
+	Menu.Draw.Q:Slider('B', 'blue', 50, 0, 250)
+	Menu.Draw.Q:Slider('G', 'green', 0, 0, 250)
+	Menu.Draw:Menu('Q3', '3rd Q')
+	Menu.Draw.Q3:Boolean('On', 'Draw 3rd Q', true)
+	Menu.Draw.Q3:Slider('R', 'red', 125, 0, 250)
+	Menu.Draw.Q3:Slider('B', 'blue', 50, 0, 250)
+	Menu.Draw.Q3:Slider('G', 'green', 0, 0, 250)
+	Menu.Draw:Menu('R', 'R')
+	Menu.Draw:Menu('Target', 'Left-clicked Target')
+	Menu.Draw.Target:Boolean('On', 'Draw Target', true)
+	Menu.Draw.Target:Slider('R', 'red', 250, 0, 250)
+	Menu.Draw.Target:Slider('B', 'blue', 0, 0, 250)
+	Menu.Draw.Target:Slider('G', 'green', 0, 0, 250)
+end  
+
