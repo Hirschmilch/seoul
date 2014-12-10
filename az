@@ -1,0 +1,251 @@
+local target = {aa = nil, q = nil, w = nil, gap = nil}
+local qReady, wReady, eReady, rReady = false, false, false
+local last, windup, animation = 0, 3, 0.65
+local enemyHeroes, mySoldiers = {}, {}
+
+function AzirTarget()
+	target.aa, target.q, target.w = nil, nil, nil
+	local bestAA, bestQ, bestW = math.huge, math.huge, math.huge
+	for _, soldier in ipairs(mySoldiers) do
+		for _, enemy in ipairs(enemyHeroes) do
+			if Allclass.ValidTarget(enemy) and enemy.health > 0 and soldier.pos:DistanceTo(enemy.pos) < 370 and enemy.health < bestAA then
+				target.aa = enemy
+				bestAA = enemy.health
+			end
+		end
+	end
+	for _, enemy in ipairs(enemyHeroes) do
+		if Allclass.ValidTarget(enemy) then
+			local distance = myHero.pos:DistanceTo(enemy.pos)
+			if not target.aa and distance < 550 and enemy.health < bestAA then
+				target.aa = enemy
+				bestAA = enemy.health
+			end
+			if distance < 950 and enemy.health < bestQ then
+				target.q = enemy
+				bestQ = enemy.health
+			end
+			if distance < 900 and enemy.health < bestW then
+				target.w = enemy
+				bestW = enemy.health
+			end
+		end
+	end
+end
+
+function VectorPos(v1, v2, range)
+	local v3 = Geometry.Vector3(v1.x, v1.y, v1.z)
+    local v4 = Geometry.Vector3(v2.x, v2.y, v2.z)
+    local v5 = (v3 - v4):Normalize() * range
+    local p1 = v3 + v5
+    local p2 = v3 - v5
+    if v4:DistanceTo(p1) < v4:DistanceTo(p2) then
+    	return p1
+    else
+    	return p2
+    end
+end
+
+function BestQTarget()
+	local best = {obj = nil, hit = 0, dist = math.huge, pos = nil}
+	for i = 1, #mySoldiers do
+		local dist = mySoldiers[i].pos:DistanceTo(target.q.pos)
+		local pos, hit, p = BasicPrediction.GetPredictedPosition(target.q, 2100, 500, 0.25, 100, false, false, mySoldiers[i])
+		if hit >= best.hit then
+			if dist < best.dist then
+				best.obj = mySoldiers[i]
+				best.hit = hit
+				best.pos = pos
+				best.dist = dist
+			end
+		end
+	end
+	return best.obj, best.pos
+end
+
+function RotateThis(v1, v2, sig)
+	local d = v1.pos:DistanceTo(v2)
+	local c = math.sqrt(d ^ 2 - 240 ^ 2)
+	local alpha = math.deg(math.acos((d ^ 2 + c ^ 2 - 240 ^ 2) / (2 * d * c)))
+	return v1.pos:To2D() - (v1.pos - v2):To2D():Normalize():RotateDeg(alpha * sig) * c
+end
+
+function CastQ()
+	if target.q and qReady and #mySoldiers > 0 then
+		if #mySoldiers == 1 then
+			local pos, hit, p = BasicPrediction.GetPredictedPosition(target.q, 2100, 500, 0.25, 100, false, false, mySoldiers[1])
+			if hit > 0 then
+				myHero:CastSpell(0, pos.x, pos.z)
+		    end
+		elseif #mySoldiers == 2 then
+			local best, pos = BestQTarget()
+			if best then
+				if best == mySoldiers[2] then
+					myHero:CastSpell(0, pos.x, pos.z)
+				else
+					pos = RotateThis(myHero, pos, -1)
+					if pos then
+						myHero:CastSpell(0, pos.x, pos.y)
+					end
+				end
+			end
+		elseif #mySoldiers == 3 then
+			local best, pos = BestQTarget()
+			if best then
+				if best == mySoldiers[2] then
+					myHero:CastSpell(0, pos.x, pos.z)
+				elseif best == mySoldiers[1] then
+					pos = RotateThis(myHero, pos, -1)
+					if pos then
+						myHero:CastSpell(0, pos.x, pos.y)
+					end
+				else
+					pos = RotateThis(myHero, pos, 1)
+					if pos then
+						myHero:CastSpell(0, pos.x, pos.y)
+					end
+				end
+			end
+		end
+	end
+end
+
+function CastW()
+	if target.w then
+		local dist = myHero.pos:DistanceTo(target.w.pos)
+		if dist < 450 and wReady then
+			myHero:CastSpell(1, target.w.x, target.w.z)
+		elseif dist < 900 and wReady then
+			local pos = VectorPos(myHero, target.w, 450)
+			myHero:CastSpell(1, pos.x, pos.z)
+	    end
+	end
+end
+
+function RemoveSoldier(obj)
+	for i = 1, #mySoldiers do
+		if obj == mySoldiers[i] then
+			table.remove(mySoldiers, i)
+		end
+	end
+end
+
+function OnCreateObj(obj)
+	if obj and obj.name:find('Azir_Base_P_Soldier_Ring.troy') then
+		table.insert(mySoldiers, obj)
+	end
+end
+
+function OnDeleteObj(obj)
+    if obj and obj.name:find('Azir_Base_P_Soldier_Ring.troy') then
+		RemoveSoldier(obj)
+	end
+end
+
+
+local testpos1, testpos2 = nil
+function OnProcessSpell(unit, spell)
+	if unit.isMe then
+    	if spell.name:lower():find('attack') or spell.name:lower():find('azirbasicattacksoldier') then
+			windup = spell.windUpTime
+			animation = spell.animationTime
+			last = os.clock() - Game.Latency() / 2000
+	    end
+    end
+end
+
+function MyRange(target)
+	local myRange = myHero.range + 65
+	if Allclass.ValidTarget(target) then
+		myRange = myRange + target.boundingRadius
+	end
+	return myRange
+end
+
+function CanAttack() 
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + animation
+	end
+	return false
+end
+
+function CanMove()
+	if last <= os.clock() then
+		return os.clock() + Game.Latency() / 2000 > last + windup + Menu.Orbwalker.Add:Value() / 1000
+	end
+	return false
+end
+
+function Orbwalk(target)
+	if target and CanAttack() then
+		myHero:Attack(target)
+	elseif CanMove() then
+		myHero:Move(mousePos.x, mousePos.z)
+	end
+end
+
+function OnDraw()
+    Render.GameCircle(myHero, 450, Graphics.ARGB(255, 125, 50, 0):ToNumber()):Draw()
+    Render.GameCircle(myHero, 850, Graphics.ARGB(255, 125, 50, 0):ToNumber()):Draw()
+end
+
+function Combo()
+	if Menu.Orbwalker.Key:IsPressed() then
+	    Orbwalk(target.aa)
+	    CastW()
+	    CastQ()
+	end
+end
+
+function OnTickCheck()
+	qReady = myHero:CanUseSpell(0) == Game.SpellState.READY
+	wReady = myHero:CanUseSpell(1) == Game.SpellState.READY
+  	eReady = myHero:CanUseSpell(2) == Game.SpellState.READY
+  	rReady = myHero:CanUseSpell(3) == Game.SpellState.READY
+  	AzirTarget()
+end
+
+
+function OnTick()
+    if myHero.dead then return end
+    OnTickCheck()
+	Combo()
+end
+
+Callback.Bind('Load', function()
+	Callback.Bind('GameStart', function()
+	    InitGame()
+		Callback.Bind('Tick', OnTick)
+		Callback.Bind('Draw', OnDraw)
+		Callback.Bind('CreateObj', function(obj) OnCreateObj(obj) end) 
+		Callback.Bind('DeleteObj', function(obj) OnDeleteObj(obj) end)
+		Callback.Bind('ProcessSpell', function(unit, spell) OnProcessSpell(unit, spell) end)
+		Game.Chat.Print('loaded')
+	end)
+end)
+
+function InitGame()
+	if myHero.charName ~= 'Azir' then
+		return
+	end
+	for i = 1, Game.HeroCount() do
+		local player = Game.Hero(i)
+		if player.team ~= myHero.team then
+			table.insert(enemyHeroes, player)
+		end
+	end
+	BasicPrediction.EnablePrediction()
+	Menu()
+end
+
+function Menu()
+	Menu = MenuConfig('Azir')
+	Menu:Icon('fa-empire')
+
+	Menu:Menu('Orbwalker', 'Orbwalker')
+	Menu.Orbwalker:Icon('fa-joomla')
+	Menu.Orbwalker:Slider('Add', 'Extra windup', 10, 0, 100)
+	Menu.Orbwalker:KeyBinding('Key', 'Combo Key', 'SPACE')
+	
+end  
+
