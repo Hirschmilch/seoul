@@ -1,0 +1,574 @@
+local draw = {ready = false, time = nil, sPos = nil, ePos = nil, speed = nil}
+local qReady, wReady, eReady, rReady = false, false, false, false
+local target, selected = {aa = nil, main = nil}, nil
+local last, windup, animation = 0, 0.65, 3
+local ball, ballMoving = nil, false
+local enemyHeroes, allyHeroes, validEnemy, validAlly = {}, {}
+local VP = nil
+
+require 'VPrediction'
+
+local debug = false
+function TargetSelector()
+	validEnemy, validAlly = {}, {}
+	for i, enemy in ipairs(enemyHeroes) do
+		if ValidTarget(enemy) then
+			validEnemy[enemy.networkID] = enemy
+		end
+	end
+	for i, ally in ipairs(allyHeroes) do
+		if ValidTarget(ally, 1095, false) then
+			validAlly[ally.networkID] = ally
+		end
+	end
+	target.aa, target.main = nil, nil
+	if selected then
+	    if validEnemy[selected.networkID] then
+	    	local dtSqr = GetDistanceSqr(validEnemy[selected.networkID])
+	    	if dtSqr < 950625 then
+    	    	target.main = selected
+    	     	local trueRange = myHero.range + 65 + selected.boundingRadius
+    	    	if dtSqr < trueRange * trueRange then
+    	    		target.aa = selected
+    	    	end
+    	    end
+		else
+			 print('<font color=\'#999999\'>'..selected.charName..'<font color=\'#CC1500\'><b> unselected</b></font></font>')
+			selected = nil
+		end
+	end
+	if not selected then
+		if Menu.TS.Mode == 1 then
+			local aaR, mainR = 0, 0
+			for i, enemy in pairs(validEnemy) do
+				local dtSqr = GetDistanceSqr(enemy)
+				local ratio = myHero.ap / enemy.magicArmor / enemy.health
+				if dtSqr < 950625 then
+					if ratio > mainR then
+						target.main, mainR = enemy, ratio
+					end
+					local trueRange = myHero.range + 65 + enemy.boundingRadius
+		        	if dtSqr < trueRange * trueRange and ratio > aaR then
+		        		target.aa, aaR = enemy, ratio
+		        	end
+		        end
+			end
+		else
+			local aaHp, mainHp = math.huge, math.huge
+			for i, enemy in pairs(validEnemy) do
+				local dtSqr = GetDistanceSqr(enemy)
+				if dtSqr < 950625 then
+					if enemy.health < mainHP then
+						target.main, mainHP = enemy, enemy.health
+					end
+					local trueRange = myHero.range + 65 + enemy.boundingRadius
+		        	if dtSqr < myRange * myRange and enemy.health < aaHp then
+		        		target.aa, aaHp = enemy, enemy.health
+		        	end
+		        end
+			end
+		end
+	end
+end
+
+function OnWndMsg(msg, key)
+	if msg == 514 and Menu.TS.Selected then
+		local current = nil
+		for i, enemy in pairs(validEnemy) do
+			if GetDistanceSqr(enemy, mousePos) < 40000 then
+				current = enemy
+			end
+		end
+		local temp = nil
+	    if selected then
+		    print('<font color=\'#999999\'>'..selected.charName..'<font color=\'#CC1500\'><b> unselected</b></font></font>')
+		    temp = selected
+		    selected = nil
+		end
+	    if (current and current ~= temp) then
+		    selected = current
+		    print('<font color=\'#999999\'>'..selected.charName..'<font color=\'#00AA00\'><b> selected</b></font></font>')
+		end
+	end
+end
+
+function VectorPos(v1, v2, range)
+	local v3 = Vector(v1)
+    local v4 = Vector(v2)
+    local v5 = (v3 - v4):normalized() * range
+    local p1 = v3 + v5
+    local p2 = v3 - v5
+    return GetDistanceSqr(v4, p1) < GetDistanceSqr(v4, p2) and p1 or p2
+end
+
+function MinDelay(pos)
+	if not eReady or not Menu.Sphere.E.Dynamic then return end
+	local best, minDelay = nil, GetDistance(pos, ball) / 1200
+	for i, ally in pairs(validAlly) do
+		local delay = GetDistance(ally, pos) / 1200 + GetDistance(ally, ball) / 1700
+		if delay < minDelay then
+			best, minDelay = ally, delay
+		end
+	end
+	return best
+end
+
+function NormalCast()
+	if not qReady or not Menu.Sphere.Q.Global then return end
+	local pPos, hit = VP:GetLineCastPosition(target.main, 0, 80, 823, 1200, ball)
+	if pPos then
+		local dynamic = MinDelay(pPos)
+		if dynamic then
+			CastSpell(_E, dynamic)
+			if debug then print('dynamic e normal') end
+			return
+		elseif hit >= Menu.Sphere.Q.Mode then
+			CastSpell(_Q, pPos.x, pPos.z)
+			if debug then print('predicted q') end
+			return
+		end
+		if GetDistanceSqr(pPos) > 680625 then
+			local main, pPosMain = nil, nil
+			if Menu.TS.Mode == 1 then
+				local mainR = 0
+				for i, enemy in pairs(validEnemy) do
+					if enemy ~= target.main then
+						local pPosNew, hit = VP:GetLineCastPosition(enemy, 0, 80, 825, 1200, ball)
+						local ratio = myHero.ap / enemy.magicArmor / enemy.health
+						if hit > 0 and ratio > mainR and GetDistanceSqr(pPosNew) < 680625 then
+							main, pPosMain, mainR = enemy, pPosNew, ratio
+						end
+					end
+				end
+			else
+				local mainHp = math.huge
+				for i, enemy in pairs(validEnemy) do
+					if enemy ~= target.main then
+						local pPosNew, hit = VP:GetLineCastPosition(enemy, 0, 80, 825, 1200, ball)
+						if hit > 0 and enemy.health < mainHp and GetDistanceSqr(pPosNew) < 680625 then
+							main, pPosMain, mainHp = enemy, pPosNew, enemy.health
+						end
+					end
+				end
+			end
+			if main then
+				target.main = main
+				CastSpell(_Q, pPosMain.x, pPosMain.z)
+				if debug then print('changed target') end
+			elseif Menu.Sphere.Q.Dynamic then
+				local qPos = VectorPos(myHero, pPos, 825)
+				CastSpell(_Q, pPos.x, pPos.z)
+				if debug then print('dymanic q') end
+			end
+		end
+	end
+end
+
+function BoundSphere(points)
+	local sphere = {center = points[1], radius = 0.0001}
+	for i = 1, 3 do
+		for _, point in ipairs(points) do
+			local dist = GetDistance(point, sphere.center)
+			if dist > sphere.radius then
+				local a = dist / sphere.radius
+				sphere.radius = (a + 1 / a) * sphere.radius * 0.5
+				local b = a * a
+				sphere.center = ((1 + 1 / b) * sphere.center + (1 - 1 / b) * point) * 0.5
+			end
+		end
+	end
+	for _, point in ipairs(points) do
+		local diff = point - sphere.center  
+		local dist = GetDistance(point, sphere.center)
+		if dist > sphere.radius then
+			sphere.radius = (sphere.radius + dist) * 0.5
+			sphere.center = sphere.center + ((dist - sphere.radius) / dist * diff)
+		end
+	end
+	return sphere
+end
+
+function ValidSphere(sphere, points)
+	return (sphere.radius <= 380 and #points > 2 and rReady) or (sphere.radius <= 245 and #points > 1 and wReady) or (sphere.radius <= 130 and #points > 1 and qReady)
+end
+
+function SphereCast()
+	if not qReady or not Menu.Sphere.Q.Global then return end
+	local cPos, hit, vPos = VP:GetLineCastPosition(target.main, 0, 80, 825, 1200, ball)
+	local points = {vPos}
+	for i, enemy in pairs(validEnemy) do
+		if enemy ~= target.main and GetDistanceSqr(enemy) < 2250000 then
+			cPos, hit, vPos = VP:GetLineCastPosition(enemy, 0, 80, 825, 1200, ball)
+			table.insert(points, vPos)
+		end
+	end
+	for i = 1, #points - 1 do
+		local sphere = BoundSphere(points)
+		if GetDistance(sphere.center) <= 825 then
+			if ValidSphere(sphere, points) then
+				local dynamic = MinDelay(sphere.center)
+				if dynamic then
+					CastE(dynamic)
+					if debug then print('dynamic e sphere') end
+				else
+					CastSpell(_Q, sphere.center.x, sphere.center.z)
+					if debug then print('sphere cast q') end
+				end
+			end
+		end
+		local index, worst = nil, -math.huge
+		for j = 2, #points do
+			local dtSqr = GetDistanceSqr(points[1], points[j])
+			if dtSqr > worst then
+				worst, index = dtSqr, j
+			end
+		end
+		if index then
+			table.remove(points, index)
+		end
+	end
+end
+
+function DistFromLineSegment(startPos, endPos, object)
+	local parameter = ((object.x - startPos.x) * (endPos.x - startPos.x) + (object.z - startPos.z) * (endPos.z - startPos.z)) / GetDistanceSqr(endPos)
+	if parameter < 0 then
+		return GetDistance(object)
+	elseif parameter > 1 then
+		return GetDistance(object, endPos)
+	else
+		return GetDistance(object, Vector(startPos.x + parameter * (endPos.x - startPos.x), 0, startPos.z + parameter * (endPos.z - startPos.z)))
+	end
+end
+
+function ELogic()
+	if not eReady then return end
+	local defensive = {best = nil, max = 1}
+	local offensive1 = {max = 0}
+	local offensive2 = {best = nil, max = 0}
+	for i, ally in pairs(validAlly) do
+		local cDef, cOff = 0, 0
+		for j, enemy in pairs(validEnemy) do
+			if GetDistanceSqr(ally, enemy) < 60025 then cDef = cDef + 1 end
+			if GetDistanceSqr(enemy) < 1199025 and GetDistance(ball, enemy) > enemy.boundingRadius + 80 and GetDistance(enemy) > enemy.boundingRadius + 50 then
+				local dt = GetDistance(ball, enemy) / 1700
+				local pPosE = VP:GetPredictedPos(enemy, GetDistance(ball, enemy) / 1700)
+				local pPosA = VP:GetPredictedPos(ally, GetDistance(ball, enemy) / 1700)
+				local sgmnt = DistFromLineSegment(Vector(ally), Vector(ball), pPosE)
+				if sgmnt and sgmnt < enemy.boundingRadius + 80 then
+					cOff = cOff + 1
+				end
+			end
+		end
+		if cDef > defensive.max then 
+			defensive.best, defensive.max = ally, cDef
+		end
+		if ally.isMe and cOff > offensive1.max then
+			offensive1.max = cOff
+		elseif cOff > offensive2.max then
+			offensive2.best, offensive2.max = ally, cOff
+		end
+	end
+	if Menu.Sphere.E.Defensive and defensive.best then CastE(defensive.best) if debug then print('defensive e surrounded') end end
+	if Menu.Sphere.E.Offensive and Menu.Sphere.Key then
+		if offensive1.max > 0 then CastE(myHero) if debug then print('offensive e self') end
+		elseif offensive2.best then CastE(offensive2.best) if debug then print('offensive e ally') end 
+		end
+	end
+end
+
+function HitCheck()
+	local cW, cR = 0, 0
+	for i, enemy in pairs(validEnemy) do
+		local pPosW = VP:GetPredictedPos(enemy, 0.25)
+		local pPosR = VP:GetPredictedPos(enemy, 0.6)
+		if GetDistanceSqr(ball, pPosW) <= 58000 and GetDistanceSqr(ball, enemy) <= 58000 then
+			cW = cW + 1
+		end
+		if GetDistanceSqr(ball, pPosR) <= 144400 and GetDistanceSqr(ball, enemy) <= 144400 then
+			cR = cR + 1
+		end
+	end
+	if Menu.Sphere.Key then
+		if rReady and cR >= Menu.Sphere.R.Combo then CastR() if debug then print('r combo') end end
+		if wReady and cW >= Menu.Sphere.W.Combo then CastW() if debug then print('w combo') end end
+	else
+		if rReady and cR >= Menu.Sphere.R.Auto then CastR() if debug then print('r auto') end end
+		if wReady and cW >= Menu.Sphere.W.Auto then CastW() if debug then print('w auto') end end
+	end
+end
+
+function CastW()
+	if Menu.Sphere.W.Global then
+		CastSpell(_W)
+	end
+end
+
+function CastE(target)
+	if Menu.Sphere.E.Global then
+		CastSpell(_E, target)
+	end
+end
+
+function CastR()
+	if Menu.Sphere.R.Global then
+		CastSpell(_R)
+	end
+end
+
+function Combo()
+	ELogic()
+	if Menu.Sphere.Key then
+		if target.main then
+			SphereCast()
+			NormalCast()
+		end
+		Orbwalk(target.aa)
+	end
+end
+
+local qq, ee, lock = nil, nil, false
+function OnCreateObj(obj)
+	if ballMoving then
+		if obj.name:lower():find('yomu_ring_green')  and GetDistanceSqr(obj, qq) < 40000 then
+			--print("Yomu: "..GetDistance(obj, qq))
+			ballMoving = false
+			ball = Vector(obj)
+			lock = false
+		elseif obj.name:lower():find('e_protectshield') and GetDistanceSqr(obj, ee) < 40000 then
+			--print("E_protectshield: "..GetDistance(ee, obj))
+			ballMoving = false
+			ball = ee	
+			lock = false
+		end
+	elseif obj.name:lower():find('ball_flash_reverse') and GetDistanceSqr(obj) < 40000 then
+		--print("Rev2: "..GetDistance(obj))
+		ballMoving = false
+		ball = myHero
+	end
+end
+
+function OnDeleteObj(obj)
+	if not lock and not ballMoving then
+		if obj.name:lower():find('yomu_ring_green') and GetDistanceSqr(obj) < 40000 then
+			--print("Yomu2: "..GetDistance(obj))
+			ball = myHero
+			ballMoving = false
+		end
+	end	
+end
+
+local draw = {startPos = nil, endPos = nil, speed = math.huge}
+function OnProcessSpell(unit, spell)
+	if unit.isMe then
+    	if spell.name:lower():find('attack') then
+			windup = spell.windUpTime
+			animation = spell.animationTime
+			last = os.clock() - GetLatency() / 2000
+    	elseif spell.name:lower():find('orianaizunacommand') then
+			draw.startPos = Vector(ball)
+			draw.endPos = Vector(spell.endPos)
+			draw.speed = 1200
+			draw.startTime = os.clock() - GetLatency() / 1000
+			qq = Vector(spell.endPos)
+			ballMoving, lock = true, true
+		elseif spell.name:lower():find('orianaredactcommand') then
+			if GetDistanceSqr(ball, spell.target) > 1 then
+				lock = true
+				draw.startPos = Vector(ball)
+				draw.endPos = spell.target
+				draw.speed = 1700
+				draw.startTime = os.clock() - GetLatency() / 1000
+				ee = spell.target
+				ballMoving, lock = true, true
+			end
+		end
+	elseif unit.team ~= myHero.team then
+		if eReady and Menu.Sphere.E.Defensive and spell.target and validAlly[spell.target.networkID] and spell.target.health / spell.target.maxHealth < 0.2 then
+			CastE(spell.target)
+			if debug then print('defensive e hp') end 
+		end
+	end
+end
+
+function CanAttack() 
+	if last <= os.clock() then
+		return os.clock() + GetLatency() / 2000 > last + animation
+	end
+	return false
+end
+
+function CanMove()
+	if last <= os.clock() then
+		return os.clock() + GetLatency() / 2000 > last + windup + 0.01
+	end
+	return false
+end
+
+function NotSurrounded()
+	local nearby = 0
+	for i, enemy in pairs(validEnemy) do
+		if GetDistanceSqr(enemy) < 122500 then
+			nearby = nearby + 1
+		end
+	end
+	if nearby > Menu.Orbwalk.Stop then
+		return false
+	else
+		return true
+	end
+end
+
+function Orbwalk(target)
+	if not Menu.Orbwalk.On then return end
+	if target and CanAttack() and NotSurrounded() then
+		myHero:Attack(target)
+	elseif CanMove() and GetDistanceSqr(mousePos) > 3306 then
+		local movePos = VectorPos(myHero, mousePos, 250)
+		myHero:MoveTo(movePos.x, movePos.z)
+	end
+end
+
+
+function DrawBallMoving(startPos, endPos, speed, stime)
+	local travelled = (os.clock() - GetLatency() / 1000 - stime) * speed
+	local start = startPos - (startPos - endPos):normalized() * travelled
+	DrawCircle2(start.x, start.y, start.z, 40, ARGB(255, 0, 251, 221))
+	DrawCircle2(endPos.x, endPos.y, endPos.z, 40, ARGB(255, 255, 0, 0))
+end
+
+function round(num) 
+    if num >= 0 then return math.floor(num+.5) else return math.ceil(num-.5) end
+end
+
+function DrawCircleNextLvl(x, y, z, radius, width, color, chordlength)
+    radius = radius or 300
+  	quality = math.max(8,round(180/math.deg((math.asin((chordlength/(2*radius)))))))
+  	quality = 2 * math.pi / quality
+ 	radius = radius*.92
+    local points = {}
+    for theta = 0, 2 * math.pi + quality, quality do
+        local c = WorldToScreen(D3DXVECTOR3(x + radius * math.cos(theta), y, z - radius * math.sin(theta)))
+        points[#points + 1] = D3DXVECTOR2(c.x, c.y)
+    end
+    DrawLines2(points, width or 1, color or 4294967295)
+end
+
+function DrawCircle2(x, y, z, radius, color)
+    local vPos1 = Vector(x, y, z)
+    local vPos2 = Vector(cameraPos.x, cameraPos.y, cameraPos.z)
+    local tPos = vPos1 - (vPos1 - vPos2):normalized() * radius
+    local sPos = WorldToScreen(D3DXVECTOR3(tPos.x, tPos.y, tPos.z))
+    if OnScreen({ x = sPos.x, y = sPos.y }, { x = sPos.x, y = sPos.y }) then
+        DrawCircleNextLvl(x, y, z, radius, 1, color, 75) 
+    end
+end
+
+function OnDraw()
+	if myHero.dead then return end
+	if not ballMoving then
+		DrawCircle2(ball.x, ball.y, ball.z, 40, ARGB(255, 0, 251, 221))
+		if Menu.Draw.RW then
+			DrawCircle2(ball.x, ball.y, ball.z, 245, ARGB(255, 0, 251, 221))
+		end
+		if Menu.Draw.RR then
+			DrawCircle2(ball.x, ball.y, ball.z, 380, ARGB(255, 0, 251, 221))
+		end
+  	end
+	if ballMoving then
+		DrawBallMoving(draw.startPos, draw.endPos, draw.speed, draw.startTime)
+	end
+	if Menu.Draw.Q then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, 825, ARGB(255, 0, 251, 221))
+	end
+	if Menu.Draw.E then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, 1095, ARGB(255, 0, 251, 221))
+	end
+	if Menu.Draw.AA then
+		DrawCircle2(myHero.x, myHero.y, myHero.z, myHero.range + 65, ARGB(255, 199, 199, 199))
+	end
+	if Menu.Draw.Target and selected then
+		DrawCircle2(selected.x, selected.y, selected.z, 140, ARGB(255, 255, 0, 0))
+	end
+end
+
+function OnTickCheck()
+	qReady = myHero:CanUseSpell(_Q) == READY
+	wReady = myHero:CanUseSpell(_W) == READY
+	eReady = myHero:CanUseSpell(_E) == READY
+  	rReady = myHero:CanUseSpell(_R) == READY
+  	HitCheck()
+end
+
+local tick, start = 0, os.clock()
+function OnTick()
+    if myHero.dead then return end
+    TargetSelector()	
+    if not ballMoving then
+    	OnTickCheck()
+   		Combo()
+   	end
+end
+
+function InitGame()
+	if myHero.charName ~= 'Orianna' then
+		return
+	end
+	for i = 1, heroManager.iCount do
+		local hero = heroManager:GetHero(i)
+		if hero.team ~= myHero.team then
+			table.insert(enemyHeroes, hero)
+		else
+		    table.insert(allyHeroes, hero)
+		end
+    end
+    ballMoving = false
+    ball = myHero
+    VP = VPrediction()
+	Menu()
+end
+
+function Menu()
+	Menu = scriptConfig('Hirschmilch Orianna', 'SphereOrianna')
+	Menu:addSubMenu('Sphere Settings', 'Sphere')
+	Menu.Sphere:addSubMenu('SPELL _Q', 'Q')
+	Menu.Sphere.Q:addParam('Global', 'Global', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.Q:addParam('Dynamic', 'Dynamic', SCRIPT_PARAM_ONOFF, false)
+	Menu.Sphere.Q:addParam('Mode', 'Cast Mode', SCRIPT_PARAM_LIST, 2, {'Fast', 'Accurate'})
+	Menu.Sphere:addSubMenu('SPELL _W', 'W')
+	Menu.Sphere.W:addParam('Global', 'Global', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.W:addParam('Auto', 'Automatic', SCRIPT_PARAM_SLICE, 2, 1, 5)
+	Menu.Sphere.W:addParam('Combo', 'Sphere Combo', SCRIPT_PARAM_SLICE, 1, 1, 5)
+	Menu.Sphere:addSubMenu('SPELL _E', 'E')
+	Menu.Sphere.E:addParam('Global', 'Global', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.E:addParam('Dynamic', 'Dynamic', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.E:addParam('Defensive', 'Defensive', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.E:addParam('Offensive', 'Offensive', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere:addSubMenu('SPELL _R', 'R')
+	Menu.Sphere.R:addParam('Global', 'Global', SCRIPT_PARAM_ONOFF, true)
+	Menu.Sphere.R:addParam('Auto', 'Automatic', SCRIPT_PARAM_SLICE, 3, 1, 5)
+	Menu.Sphere.R:addParam('Combo', 'Sphere Combo', SCRIPT_PARAM_SLICE, 2, 1, 5)
+	Menu.Sphere:addParam('Key', 'Sphere Combo', SCRIPT_PARAM_ONKEYDOWN, false, 32)
+	Menu:addSubMenu('Orbwalker', 'Orbwalk')
+	Menu.Orbwalk:addParam('On', 'Orbwalk', SCRIPT_PARAM_ONOFF, true)
+	Menu.Orbwalk:addParam('Stop', 'Disable AA if X nearby', SCRIPT_PARAM_SLICE, 2, 1, 5)
+	Menu:addSubMenu('Selector', 'TS')
+	Menu.TS:addParam('Mode', 'Mode', SCRIPT_PARAM_LIST, 1, {'Less Cast', 'Lowest Health'})
+	Menu.TS:addParam('Selected', 'Focus left-clicked Target', SCRIPT_PARAM_ONOFF, true)
+	
+	Menu:addSubMenu('Drawings', 'Draw')
+	Menu.Draw:addParam('Q', 'SPELL _Q', SCRIPT_PARAM_ONOFF, true)
+	Menu.Draw:addParam('E', 'SPELL _E', SCRIPT_PARAM_ONOFF, false)
+	Menu.Draw:addParam('RW', 'RADIUS _W', SCRIPT_PARAM_ONOFF, false)
+	Menu.Draw:addParam('RR', 'RADIUS _R', SCRIPT_PARAM_ONOFF, false)
+	Menu.Draw:addParam('AA', 'Auto Attack', SCRIPT_PARAM_ONOFF, true)
+	Menu.Draw:addParam('Target', 'Mark left-clicked target', SCRIPT_PARAM_ONOFF, true)
+end
+
+function Welcome()
+	PrintChat('<font color=\'#1f8915\'>Hirschmilch Orianna <font color=\'#CCCCCC\'>loaded.</font></font>')
+end
+
+function OnLoad()
+	InitGame()
+	DelayAction(Welcome)
+end
